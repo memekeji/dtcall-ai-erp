@@ -1,8 +1,0 @@
-node_modules
-frontend/dist
-backend/storage/official-site.json
-backend/storage/backups
-backend/storage/uploads
-backend/internal/app/web/assets
-dist
-.env
