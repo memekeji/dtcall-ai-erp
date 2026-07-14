@@ -5647,6 +5647,77 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         self.assertEqual(intent, 'order_total_this_month')
         self.assertEqual(entities['time_range'], 'this_month')
 
+    def test_resolve_specific_intent_routes_ai_customer_deal_this_month(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '帮我看下本月成交的客户有哪些',
+            {
+                'intent': 'DATA_QUERY',
+                'confidence': 0.95,
+                'action': 'list',
+                'data_type': 'customer',
+                'status': '成交',
+                'time_range': 'this_month',
+                'source': 'ai',
+            },
+        )
+
+        self.assertEqual(intent, 'customer_deal_this_month')
+        self.assertEqual(entities['status'], 'deal')
+        self.assertEqual(entities['time_range'], 'this_month')
+
+    def test_format_customer_deal_empty_result_uses_business_language(self):
+        from apps.ai.services.query_service import QueryService
+
+        message = QueryService().format_result({
+            'type': 'list',
+            'items': [],
+            'total': 0,
+            'data_type': 'customer',
+            'status': 'deal',
+            'time_range': 'this_month',
+            'event': 'deal',
+        })
+
+        self.assertEqual(message, '暂无本月成交的客户数据。')
+
+    def test_resolve_specific_intent_normalizes_chinese_order_status(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '处理中订单有哪些',
+            {
+                'intent': 'DATA_QUERY',
+                'confidence': 0.93,
+                'action': 'list',
+                'data_type': 'order',
+                'status': '处理中',
+                'source': 'ai',
+            },
+        )
+
+        self.assertEqual(intent, 'order_list')
+        self.assertEqual(entities['status'], 'processing')
+
+    def test_resolve_specific_intent_normalizes_chinese_invoice_status(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent, entities = QueryService().resolve_specific_intent(
+            '已开票的客户发票有多少',
+            {
+                'intent': 'DATA_QUERY',
+                'confidence': 0.94,
+                'action': 'count',
+                'data_type': 'invoice',
+                'status': '已开票',
+                'source': 'ai',
+            },
+        )
+
+        self.assertEqual(intent, 'invoice_count')
+        self.assertEqual(entities['status'], 'issued')
+
     def test_resolve_specific_intent_prefers_contract_total_for_contract_amount_query(self):
         from apps.ai.services.query_service import QueryService
 
@@ -5709,7 +5780,7 @@ class AIQueryServiceIntentCoverageTests(SimpleTestCase):
         )
 
         self.assertEqual(intent, 'project_count_in_progress')
-        self.assertEqual(entities['status'], '进行中')
+        self.assertEqual(entities['status'], 'in_progress')
 
     def test_resolve_specific_intent_inherits_list_from_count_follow_up_query(self):
         from apps.ai.services.query_service import QueryService
@@ -7465,6 +7536,107 @@ class AIQueryServiceApprovalAndFinanceScopeTests(TestCase):
 
 
 class AIQueryServiceCustomerOrderTaskScopeTests(TestCase):
+    def test_customer_deal_this_month_applies_visibility_time_and_soft_delete(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer, CustomerOrder
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='deal-scope-owner')
+        other = User.objects.create_user(username='deal-scope-other')
+        owned_customer = Customer.objects.create(name='本月自有成交客户', belong_uid=owner.id, delete_time=0)
+        shared_customer = Customer.objects.create(name='本月共享成交客户', belong_uid=other.id, share_ids=str(owner.id), delete_time=0)
+        hidden_customer = Customer.objects.create(name='本月无权成交客户', belong_uid=other.id, delete_time=0)
+        old_customer = Customer.objects.create(name='上月成交客户', belong_uid=owner.id, delete_time=0)
+        deleted_order_customer = Customer.objects.create(name='已删订单客户', belong_uid=owner.id, delete_time=0)
+
+        today = date.today()
+        previous_month_date = today.replace(day=1) - timedelta(days=1)
+        for customer, number, order_date, delete_time in [
+            (owned_customer, 'DEAL-OWNED', today, 0),
+            (shared_customer, 'DEAL-SHARED', today, 0),
+            (hidden_customer, 'DEAL-HIDDEN', today, 0),
+            (old_customer, 'DEAL-OLD', previous_month_date, 0),
+            (deleted_order_customer, 'DEAL-DELETED', today, 1),
+        ]:
+            CustomerOrder.objects.create(
+                customer=customer,
+                order_number=number,
+                product_name='测试产品',
+                amount=100,
+                order_date=order_date,
+                create_user=owner,
+                delete_time=delete_time,
+            )
+
+        result = QueryService().handle_customer_deal_this_month(
+            {'status': 'deal', 'time_range': 'this_month'},
+            owner,
+        )
+
+        self.assertEqual(
+            {item['name'] for item in result['items']},
+            {'本月自有成交客户', '本月共享成交客户'},
+        )
+        self.assertEqual(result['total'], 2)
+
+    def test_core_customer_business_counts_apply_status_and_visibility(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.customer.models import Customer, CustomerInvoice, CustomerOrder
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='core-query-owner')
+        other = User.objects.create_user(username='core-query-other')
+        owned_customer = Customer.objects.create(name='核心自有客户', belong_uid=owner.id, delete_time=0)
+        hidden_customer = Customer.objects.create(name='核心无权客户', belong_uid=other.id, delete_time=0)
+
+        CustomerOrder.objects.create(customer=owned_customer, order_number='CORE-PROCESSING', product_name='产品', amount=100, order_date=date.today(), status='processing', create_user=owner, delete_time=0)
+        CustomerOrder.objects.create(customer=owned_customer, order_number='CORE-COMPLETED', product_name='产品', amount=100, order_date=date.today(), status='completed', create_user=owner, delete_time=0)
+        CustomerOrder.objects.create(customer=hidden_customer, order_number='CORE-HIDDEN', product_name='产品', amount=100, order_date=date.today(), status='processing', create_user=other, delete_time=0)
+        CustomerInvoice.objects.create(customer=owned_customer, invoice_number='INV-ISSUED', amount=100, tax_amount=13, invoice_date=date.today(), status='issued', create_user=owner, delete_time=0)
+        CustomerInvoice.objects.create(customer=owned_customer, invoice_number='INV-DRAFT', amount=100, tax_amount=13, invoice_date=date.today(), status='draft', create_user=owner, delete_time=0)
+        CustomerInvoice.objects.create(customer=hidden_customer, invoice_number='INV-HIDDEN', amount=100, tax_amount=13, invoice_date=date.today(), status='issued', create_user=other, delete_time=0)
+
+        query_service = QueryService()
+        order_result = query_service.handle_order_count({'status': 'processing'}, owner)
+        invoice_result = query_service.handle_invoice_count({'status': 'issued'}, owner)
+
+        self.assertEqual(order_result['value'], 1)
+        self.assertEqual(invoice_result['value'], 1)
+
+    def test_project_count_matches_page_visibility_and_status(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.project.models import Project
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='project-query-owner')
+        other = User.objects.create_user(username='project-query-other')
+        Project.objects.create(name='可见已完成项目', code='AI-PROJECT-VISIBLE', creator=owner, status=3)
+        Project.objects.create(name='可见进行中项目', code='AI-PROJECT-PROCESSING', creator=owner, status=2)
+        Project.objects.create(name='不可见已完成项目', code='AI-PROJECT-HIDDEN', creator=other, status=3)
+
+        result = QueryService().handle_project_count({'status': 'completed'}, owner)
+
+        self.assertEqual(result['value'], 1)
+
+    def test_contract_count_matches_page_visibility_and_status(self):
+        from django.contrib.auth import get_user_model
+        from apps.ai.services.query_service import QueryService
+        from apps.contract.models import Contract
+
+        User = get_user_model()
+        owner = User.objects.create_user(username='contract-query-owner')
+        other = User.objects.create_user(username='contract-query-other')
+        Contract.objects.create(code='AI-CONTRACT-VISIBLE', name='可见审核中合同', customer='客户A', admin_id=owner.id, check_status=1)
+        Contract.objects.create(code='AI-CONTRACT-OTHER-STATUS', name='可见待审核合同', customer='客户B', admin_id=owner.id, check_status=0)
+        Contract.objects.create(code='AI-CONTRACT-HIDDEN', name='不可见审核中合同', customer='客户C', admin_id=other.id, check_status=1)
+
+        result = QueryService().handle_contract_count({'status': 'reviewing'}, owner)
+
+        self.assertEqual(result['value'], 1)
+
     def test_customer_list_does_not_treat_partial_share_id_as_current_user(self):
         from django.contrib.auth import get_user_model
         from apps.ai.services.query_service import QueryService
@@ -7564,8 +7736,8 @@ class AIQueryServiceCustomerOrderTaskScopeTests(TestCase):
         User = get_user_model()
         user = User.objects.create_user(username='contract-reviewing-user')
 
-        Contract.objects.create(name='审核中合同', code='HT-REVIEW', customer='客户A', check_status=1, delete_time=0)
-        Contract.objects.create(name='通过合同', code='HT-PASS', customer='客户B', check_status=2, delete_time=0)
+        Contract.objects.create(name='审核中合同', code='HT-REVIEW', customer='客户A', admin_id=user.id, check_status=1, delete_time=0)
+        Contract.objects.create(name='通过合同', code='HT-PASS', customer='客户B', admin_id=user.id, check_status=2, delete_time=0)
 
         result = QueryService().handle_contract_list({'status': 'reviewing'}, user)
         codes = {item['contract_no'] for item in result['items']}

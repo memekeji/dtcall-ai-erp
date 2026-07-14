@@ -595,6 +595,7 @@ class QueryService:
 
         data_type, action, entities = self._apply_query_context(
             query, data_type, action, entities, context)
+        entities = self._normalize_query_entities(query, data_type, entities)
 
         if action in {'list', 'detail', 'summary', 'query', 'count'}:
             action = self._infer_query_action(query, action)
@@ -613,6 +614,86 @@ class QueryService:
             return 'ai_chat', entities
 
         return self.recognize_intent(query)
+
+    def _normalize_query_entities(
+            self,
+            query: str,
+            data_type: str | None,
+            entities: Dict[str, Any]) -> Dict[str, Any]:
+        normalized = dict(entities or {})
+        status = normalized.get('status')
+        if status is None:
+            return normalized
+
+        status_text = str(status).strip().lower()
+        status_aliases = {
+            'customer': {
+                '成交': 'deal',
+                '签约': 'deal',
+                '已成交': 'deal',
+                'deal': 'deal',
+                '潜在': 'potential',
+                '潜在客户': 'potential',
+                'potential': 'potential',
+            },
+            'order': {
+                '待处理': 'pending',
+                '待确认': 'pending',
+                '已确认': 'confirmed',
+                '处理中': 'processing',
+                '进行中': 'processing',
+                '已发货': 'shipped',
+                '已交付': 'delivered',
+                '已完成': 'completed',
+                '完成': 'completed',
+                '已取消': 'cancelled',
+                '已作废': 'cancelled',
+            },
+            'invoice': {
+                '草稿': 'draft',
+                '未开票': 'draft',
+                '未开具': 'draft',
+                'unissued': 'draft',
+                '已开票': 'issued',
+                '已开具': 'issued',
+                '已发送': 'sent',
+                '已收到': 'received',
+                '已付款': 'paid',
+                '已作废': 'cancelled',
+                '已取消': 'cancelled',
+            },
+            'contract': {
+                '待审核': 'pending',
+                '待审批': 'pending',
+                '审核中': 'reviewing',
+                '审批中': 'reviewing',
+                '已生效': 'effective',
+                '生效': 'effective',
+                '有效': 'effective',
+                '审核通过': 'approved',
+                '已通过': 'approved',
+                '审核不通过': 'rejected',
+                '已驳回': 'rejected',
+                '已拒绝': 'rejected',
+                '已撤销': 'cancelled',
+                '已取消': 'cancelled',
+                '已过期': 'expired',
+                '到期': 'expired',
+            },
+            'project': {
+                '未开始': 'pending',
+                '待开始': 'pending',
+                '进行中': 'in_progress',
+                '处理中': 'in_progress',
+                '已完成': 'completed',
+                '完成': 'completed',
+                '已关闭': 'closed',
+                '已暂停': 'paused',
+                '暂停': 'paused',
+            },
+        }
+        normalized['status'] = status_aliases.get(data_type, {}).get(status_text, status)
+        return normalized
 
     def _apply_query_context(
             self,
@@ -814,13 +895,25 @@ class QueryService:
                 return 'order_total_this_month'
             if entities.get('time_range') == 'last_month':
                 return 'order_total_last_month'
+        if data_type == 'customer':
+            status = entities.get('status')
+            if status == 'deal':
+                if action_type == 'count':
+                    return 'customer_count_deal'
+                if entities.get('time_range') == 'this_month':
+                    return 'customer_deal_this_month'
+                if entities.get('time_range') == 'last_month':
+                    return 'customer_deal_last_month'
+                return 'customer_list_deal'
+            if status == 'potential':
+                return 'customer_count_potential' if action_type == 'count' else 'customer_list_potential'
         if data_type == 'project':
             status = entities.get('status')
-            if status == '进行中':
+            if status in {'进行中', 'in_progress'}:
                 return 'project_count_in_progress' if action_type == 'count' else 'project_list_in_progress'
-            if status == '已完成':
+            if status in {'已完成', 'completed'}:
                 return 'project_count_completed' if action_type == 'count' else 'project_list_completed'
-            if status == '已暂停' and action_type == 'count':
+            if status in {'已暂停', 'paused'} and action_type == 'count':
                 return 'project_count_paused'
         return specific_intent
 
@@ -2652,6 +2745,129 @@ class QueryService:
         elif any(keyword in query_lower for keyword in ['会议跟进', '洽谈跟进']):
             entities['follow_type'] = 'meeting'
 
+    def _filter_customer_queryset(self, queryset, user, entities=None):
+        entities = entities or {}
+        queryset = queryset.filter(delete_time=0)
+        if getattr(user, 'is_superuser', False):
+            queryset = queryset.filter(belong_uid__gt=0)
+        else:
+            queryset = queryset.filter(
+                models.Q(belong_uid=user.id) |
+                build_csv_membership_q('share_ids', user.id)
+            )
+        if entities.get('scope') == 'owned_by_me':
+            queryset = queryset.filter(belong_uid=user.id)
+        return queryset.distinct()
+
+    def _filter_customer_order_queryset(self, queryset, user, entities=None):
+        from apps.customer.models import Customer
+
+        entities = entities or {}
+        visible_customer_ids = self._filter_customer_queryset(
+            Customer.objects.all(), user, entities
+        ).values_list('id', flat=True)
+        queryset = queryset.filter(delete_time=0, customer_id__in=visible_customer_ids)
+
+        status = entities.get('status')
+        allowed_statuses = {'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'}
+        if status in allowed_statuses:
+            queryset = queryset.filter(status=status)
+
+        customer_name = entities.get('customer_name')
+        if customer_name:
+            queryset = queryset.filter(customer__name__icontains=customer_name)
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(
+                    order_date__gte=start_at.date(),
+                    order_date__lt=end_at.date(),
+                )
+        return queryset
+
+    def _filter_customer_invoice_queryset(self, queryset, user, entities=None):
+        from apps.customer.models import Customer
+
+        entities = entities or {}
+        visible_customer_ids = self._filter_customer_queryset(
+            Customer.objects.all(), user, entities
+        ).values_list('id', flat=True)
+        queryset = queryset.filter(delete_time=0, customer_id__in=visible_customer_ids)
+
+        status = entities.get('status')
+        allowed_statuses = {'draft', 'issued', 'sent', 'received', 'paid', 'cancelled'}
+        if status in allowed_statuses:
+            queryset = queryset.filter(status=status)
+
+        time_range = entities.get('time_range')
+        if time_range:
+            start_at, end_at = self._resolve_time_range(time_range)
+            if start_at and end_at:
+                queryset = queryset.filter(
+                    invoice_date__gte=start_at.date(),
+                    invoice_date__lt=end_at.date(),
+                )
+        return queryset
+
+    def _filter_deal_customer_queryset(self, user, entities=None):
+        from apps.customer.models import Customer, CustomerOrder
+
+        entities = entities or {}
+        visible_customers = self._filter_customer_queryset(
+            Customer.objects.all(), user, entities
+        )
+        order_queryset = self._filter_customer_order_queryset(
+            CustomerOrder.objects.all(), user, entities
+        )
+        customer_ids = order_queryset.values_list('customer_id', flat=True).distinct()
+        return visible_customers.filter(id__in=customer_ids).distinct()
+
+    def _filter_potential_customer_queryset(self, user, entities=None):
+        from apps.customer.models import Customer, CustomerOrder
+
+        entities = entities or {}
+        visible_customers = self._filter_customer_queryset(
+            Customer.objects.all(), user, entities
+        )
+        customer_ids_with_orders = self._filter_customer_order_queryset(
+            CustomerOrder.objects.all(), user, {}
+        ).values_list('customer_id', flat=True).distinct()
+        return visible_customers.exclude(
+            id__in=customer_ids_with_orders
+        ).filter(intent_status__gt=0)
+
+    def _filter_project_queryset(self, queryset, user, entities=None):
+        entities = entities or {}
+        queryset = queryset.filter(delete_time__isnull=True)
+        if not getattr(user, 'is_superuser', False):
+            permission_filter = (
+                models.Q(creator=user) |
+                models.Q(manager=user) |
+                models.Q(members=user)
+            )
+            department_id = getattr(user, 'did', None)
+            if department_id:
+                permission_filter |= models.Q(department_id=department_id)
+            queryset = queryset.filter(permission_filter).distinct()
+        return self._apply_project_filters(queryset, entities, user)
+
+    def _filter_contract_queryset(self, queryset, user, entities=None):
+        entities = entities or {}
+        queryset = queryset.filter(
+            delete_time=0,
+            archive_time=0,
+            stop_time=0,
+            void_time=0,
+        )
+        if not getattr(user, 'is_superuser', False) and not user.has_perm('contract.admin'):
+            queryset = queryset.filter(
+                models.Q(admin_id=user.id) |
+                build_csv_membership_q('check_uids', user.id)
+            )
+        return self._apply_contract_filters(queryset, entities)
+
     def _apply_contract_filters(self, queryset, entities):
         status = entities.get('status')
         status_mapping = {
@@ -2888,35 +3104,10 @@ class QueryService:
         """处理客户数量查询"""
         from apps.customer.models import Customer
 
-        # 构建查询集，考虑用户权限
-        queryset = Customer.objects.filter(delete_time=0)  # 只查询未删除的客户
-
-        # 添加实体关联计数（与客户列表视图保持一致）
-        queryset = queryset.annotate(
-            order_count=models.Count(
-                'orders',
-                filter=models.Q(
-                    orders__delete_time=0)),
-            contract_count=models.Count(
-                'contracts',
-                filter=models.Q(
-                    contracts__delete_time=0)),
-            project_count=models.Count('projects'),
-            invoice_count=models.Count(
-                'invoices',
-                filter=models.Q(
-                    invoices__delete_time=0)))
-
-        # 数据权限过滤：与客户列表视图保持一致
-        if hasattr(user, 'is_superuser') and user.is_superuser:
-            # 超级管理员：排除已移入公海的客户（belong_uid=0）
-            queryset = queryset.filter(belong_uid__gt=0)
-        else:
-            # 普通用户：只能查看自己的客户及共享给自己的客户
-            queryset = queryset.filter(
-                models.Q(belong_uid=user.id) |
-                build_csv_membership_q('share_ids', user.id)
-            )
+        queryset = self._filter_customer_queryset(Customer.objects.all(), user, entities)
+        status = entities.get('status')
+        if isinstance(status, int):
+            queryset = queryset.filter(intent_status=status)
 
         count = queryset.count()
         return {
@@ -2930,11 +3121,9 @@ class QueryService:
         """处理客户列表查询"""
         from apps.customer.models import Customer
 
-        # 构建查询集，考虑用户权限
-        queryset = Customer.objects.filter(delete_time=0)  # 只查询未删除的客户
-
-        # 添加实体关联计数（与客户列表视图保持一致）
-        queryset = queryset.annotate(
+        queryset = self._filter_customer_queryset(
+            Customer.objects.all(), user, entities
+        ).annotate(
             order_count=models.Count(
                 'orders',
                 filter=models.Q(
@@ -2948,25 +3137,8 @@ class QueryService:
                 'invoices',
                 filter=models.Q(
                     invoices__delete_time=0)))
-
-        # 数据权限过滤：与客户列表视图保持一致
-        if hasattr(user, 'is_superuser') and user.is_superuser:
-            # 超级管理员：排除已移入公海的客户（belong_uid=0）
-            queryset = queryset.filter(belong_uid__gt=0)
-        else:
-            # 普通用户：只能查看自己的客户及共享给自己的客户
-            queryset = queryset.filter(
-                models.Q(belong_uid=user.id) |
-                build_csv_membership_q('share_ids', user.id)
-            )
-
-        if entities.get('scope') == 'owned_by_me':
-            queryset = queryset.filter(belong_uid=user.id)
-
-        # 应用筛选条件
-        # 注意：Customer模型中没有customer_status字段，使用intent_status字段代替
         status = entities.get('status')
-        if status:
+        if isinstance(status, int):
             queryset = queryset.filter(intent_status=status)
 
         # 应用排序
@@ -3004,28 +3176,11 @@ class QueryService:
     def handle_order_count(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理订单数量查询，支持按客户名称模糊匹配"""
-        from apps.customer.models import CustomerOrder, Customer
+        from apps.customer.models import CustomerOrder
 
-        # 构建客户查询集，考虑用户权限和软删除
-        customer_queryset = Customer.objects.filter(delete_time=0)  # 只查询未删除的客户
-
-        # 如果不是超级管理员，只显示归属自己的客户
-        if not user.is_superuser:
-            customer_queryset = customer_queryset.filter(belong_uid=user.id)
-
-        # 处理实体中的客户名称模糊匹配
-        customer_name = entities.get('customer_name')
-        if customer_name:
-            # 支持模糊匹配客户名称
-            customer_queryset = customer_queryset.filter(
-                name__icontains=customer_name)
-
-        # 获取符合条件的客户ID列表
-        customer_ids = customer_queryset.values_list('id', flat=True)
-
-        # 构建订单查询集，只查询未删除的订单
-        queryset = CustomerOrder.objects.filter(
-            delete_time=0, customer_id__in=customer_ids)
+        queryset = self._filter_customer_order_queryset(
+            CustomerOrder.objects.all(), user, entities
+        )
 
         count = queryset.count()
         return {
@@ -3037,18 +3192,11 @@ class QueryService:
     def handle_order_total(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理订单总额查询"""
-        from apps.customer.models import CustomerOrder, Customer
+        from apps.customer.models import CustomerOrder
 
-        # 构建查询集，考虑用户权限
-        queryset = CustomerOrder.objects.all()
-
-        # 如果不是超级管理员，只计算归属自己的客户的订单总额
-        if not user.is_superuser:
-            # 获取当前用户的客户ID列表
-            user_customer_ids = Customer.objects.filter(
-                belong_uid=user.id).values_list(
-                'id', flat=True)
-            queryset = queryset.filter(customer_id__in=user_customer_ids)
+        queryset = self._filter_customer_order_queryset(
+            CustomerOrder.objects.all(), user, entities
+        )
 
         total_amount = queryset.aggregate(
             total=models.Sum('amount'))['total'] or 0
@@ -3063,10 +3211,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理合同数量查询"""
         from apps.contract.models import Contract
-        count = Contract.objects.count()
+        queryset = self._filter_contract_queryset(Contract.objects.all(), user, entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'contract'
         }
 
@@ -3074,10 +3222,10 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理项目数量查询"""
         from apps.project.models import Project
-        count = Project.objects.count()
+        queryset = self._filter_project_queryset(Project.objects.all(), user, entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'project'
         }
 
@@ -3085,10 +3233,12 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理发票数量查询"""
         from apps.customer.models import CustomerInvoice
-        count = CustomerInvoice.objects.count()
+        queryset = self._filter_customer_invoice_queryset(
+            CustomerInvoice.objects.all(), user, entities
+        )
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'invoice'
         }
 
@@ -3106,26 +3256,16 @@ class QueryService:
     def handle_project_count_in_progress(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理进行中项目数量查询"""
-        from apps.project.models import Project
-        # 查询进行中项目数量，使用数字状态值2
-        count = Project.objects.filter(status=2).count()
-        return {
-            'type': 'count',
-            'value': count,
-            'data_type': 'project',
-            'status': 'in_progress'
-        }
+        return self.handle_project_count({**entities, 'status': 'in_progress'}, user)
 
     def handle_project_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理项目列表查询"""
         from apps.project.models import Project
 
-        # 构建查询集
-        queryset = Project.objects.all().select_related('manager')
-
-        # 应用筛选条件
-        queryset = self._apply_project_filters(queryset, entities, user)
+        queryset = self._filter_project_queryset(
+            Project.objects.all().select_related('manager'), user, entities
+        )
 
         manager = entities.get('manager')
         if manager:
@@ -3169,203 +3309,50 @@ class QueryService:
     def handle_project_list_in_progress(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理进行中项目列表查询"""
-        from apps.project.models import Project
-        # 查询前5个进行中项目，使用数字状态值2
-        projects = Project.objects.filter(status=2)[:5]
-        project_list = [{
-            'id': project.id,
-            'name': project.name,
-            'status': project.status_display,  # 使用status_display属性获取显示名称
-            'manager': project.manager.username if project.manager else '',
-            'start_date': project.start_date.strftime('%Y-%m-%d') if project.start_date else '',
-            'end_date': project.end_date.strftime('%Y-%m-%d') if project.end_date else ''
-        } for project in projects]
-        return {
-            'type': 'list',
-            'items': project_list,
-            'total': Project.objects.filter(status=2).count(),
-            'data_type': 'project',
-            'status': 'in_progress'
-        }
+        return self.handle_project_list({**entities, 'status': 'in_progress'}, user)
 
     def handle_customer_deal_last_month(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理上个月成交客户查询"""
-        from apps.customer.models import Customer, CustomerOrder
-        from apps.user.models import Admin
-        from datetime import datetime, timedelta
-
-        # 计算上个月的时间范围
-        today = datetime.today()
-        first_day_of_current_month = today.replace(day=1)
-        last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
-        first_day_of_last_month = last_day_of_last_month.replace(day=1)
-
-        # 查询上个月有订单的客户
-        # 先获取上个月有订单的客户ID
-        order_customer_ids = CustomerOrder.objects.filter(
-            order_date__gte=first_day_of_last_month,
-            order_date__lte=last_day_of_last_month
-        ).values_list('customer_id', flat=True).distinct()
-
-        # 查询客户信息
-        customers = Customer.objects.filter(id__in=order_customer_ids)[:5]
-
-        # 获取所有相关的管理员ID
-        admin_ids = [
-            customer.belong_uid for customer in customers if customer.belong_uid]
-        # 批量查询管理员信息
-        admins = Admin.objects.filter(id__in=admin_ids)
-        admin_dict = {admin.id: admin.username for admin in admins}
-
-        customer_list = [{
-            'id': customer.id,
-            'name': customer.name,
-            'status': customer.intent_status,
-            'belong_user': customer.principal.name if customer.principal else ''
-        } for customer in customers]
-
-        return {
-            'type': 'list',
-            'items': customer_list,
-            'total': len(order_customer_ids),
-            'data_type': 'customer',
-            'time_range': 'last_month',
-            'event': 'deal'
-        }
+        return self._build_deal_customer_list(
+            {**entities, 'status': 'deal', 'time_range': 'last_month'}, user
+        )
 
     def handle_customer_count_deal(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理成交客户数量查询"""
-        from apps.customer.models import Customer
-        # 成交客户应该是指有订单的客户，而不是通过customer_status字段
-        from apps.customer.models import CustomerOrder
-
-        # 构建基础查询集
-        customer_queryset = Customer.objects.all()
-        order_queryset = CustomerOrder.objects.all()
-
-        # 如果不是超级管理员，只查询归属自己的客户
-        if not user.is_superuser:
-            customer_queryset = customer_queryset.filter(belong_uid=user.id)
-
-        # 获取当前用户的客户ID列表
-        user_customer_ids = customer_queryset.values_list('id', flat=True)
-
-        # 获取有订单的客户ID
-        customer_ids = order_queryset.filter(
-            customer_id__in=user_customer_ids).values_list(
-            'customer_id', flat=True).distinct()
-
-        # 计算成交客户数量
-        count = Customer.objects.filter(id__in=customer_ids).count()
+        queryset = self._filter_deal_customer_queryset(user, entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'customer',
-            'status': '成交'
+            'status': 'deal',
+            'time_range': entities.get('time_range'),
         }
 
     def handle_customer_count_potential(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理潜在客户数量查询"""
-        from apps.customer.models import Customer
-        # 潜在客户应该是指有意向但还没有订单的客户
-        from apps.customer.models import CustomerOrder
-
-        # 构建基础查询集
-        customer_queryset = Customer.objects.all()
-        order_queryset = CustomerOrder.objects.all()
-
-        # 如果不是超级管理员，只查询归属自己的客户
-        if not user.is_superuser:
-            customer_queryset = customer_queryset.filter(belong_uid=user.id)
-
-        # 获取当前用户的客户ID列表
-        user_customer_ids = customer_queryset.values_list('id', flat=True)
-
-        # 获取有订单的客户ID
-        customer_ids_with_orders = order_queryset.filter(
-            customer_id__in=user_customer_ids).values_list(
-            'customer_id', flat=True).distinct()
-
-        # 查询没有订单但有意向的客户
-        count = Customer.objects.filter(
-            id__in=user_customer_ids).exclude(
-            id__in=customer_ids_with_orders).filter(
-            intent_status__gt=0).count()
+        queryset = self._filter_potential_customer_queryset(user, entities)
         return {
             'type': 'count',
-            'value': count,
+            'value': queryset.count(),
             'data_type': 'customer',
-            'status': '潜在'
+            'status': 'potential'
         }
 
     def handle_customer_list_deal(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理成交客户列表查询"""
-        from apps.customer.models import Customer, CustomerOrder
-
-        # 构建基础查询集
-        customer_queryset = Customer.objects.all()
-        order_queryset = CustomerOrder.objects.all()
-
-        # 如果不是超级管理员，只查询归属自己的客户
-        if not user.is_superuser:
-            customer_queryset = customer_queryset.filter(belong_uid=user.id)
-
-        # 获取当前用户的客户ID列表
-        user_customer_ids = customer_queryset.values_list('id', flat=True)
-
-        # 获取有订单的客户ID
-        customer_ids = order_queryset.filter(
-            customer_id__in=user_customer_ids).values_list(
-            'customer_id', flat=True).distinct()
-
-        # 查询成交客户信息
-        customers = Customer.objects.filter(id__in=customer_ids)[:5]
-        customer_list = [{
-            'id': customer.id,
-            'name': customer.name,
-            'source': customer.customer_source.title if customer.customer_source else '',
-            'status': customer.intent_status
-        } for customer in customers]
-
-        return {
-            'type': 'list',
-            'items': customer_list,
-            'total': Customer.objects.filter(id__in=customer_ids).count(),
-            'data_type': 'customer',
-            'status': '成交'
-        }
+        return self._build_deal_customer_list({**entities, 'status': 'deal'}, user)
 
     def handle_customer_list_potential(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理潜在客户列表查询"""
-        from apps.customer.models import Customer, CustomerOrder
-
-        # 构建基础查询集
-        customer_queryset = Customer.objects.all()
-        order_queryset = CustomerOrder.objects.all()
-
-        # 如果不是超级管理员，只查询归属自己的客户
-        if not user.is_superuser:
-            customer_queryset = customer_queryset.filter(belong_uid=user.id)
-
-        # 获取当前用户的客户ID列表
-        user_customer_ids = customer_queryset.values_list('id', flat=True)
-
-        # 获取有订单的客户ID
-        customer_ids_with_orders = order_queryset.filter(
-            customer_id__in=user_customer_ids).values_list(
-            'customer_id', flat=True).distinct()
-
-        # 查询没有订单但有意向的客户
-        customers = Customer.objects.filter(
-            id__in=user_customer_ids).exclude(
-            id__in=customer_ids_with_orders).filter(
-            intent_status__gt=0)[
-                :5]
+        queryset = self._filter_potential_customer_queryset(user, entities).select_related(
+            'customer_source'
+        ).order_by('-create_time')
+        customers = queryset[:5]
         customer_list = [{
             'id': customer.id,
             'name': customer.name,
@@ -3375,54 +3362,41 @@ class QueryService:
         return {
             'type': 'list',
             'items': customer_list,
-            'total': Customer.objects.filter(
-                id__in=user_customer_ids).exclude(
-                id__in=customer_ids_with_orders).filter(
-                intent_status__gt=0).count(),
+            'total': queryset.count(),
             'data_type': 'customer',
-            'status': '潜在'}
+            'status': 'potential'}
 
     def handle_customer_deal_this_month(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理本月成交客户查询"""
-        from apps.customer.models import Customer, CustomerOrder
-        from apps.user.models import Admin
-        from datetime import datetime
+        return self._build_deal_customer_list(
+            {**entities, 'status': 'deal', 'time_range': 'this_month'}, user
+        )
 
-        # 计算本月的时间范围
-        today = datetime.today()
-        first_day_of_current_month = today.replace(day=1)
-
-        # 查询本月有订单的客户
-        # 先获取本月有订单的客户ID
-        order_customer_ids = CustomerOrder.objects.filter(
-            order_date__gte=first_day_of_current_month
-        ).values_list('customer_id', flat=True).distinct()
-
-        # 查询客户信息
-        customers = Customer.objects.filter(id__in=order_customer_ids)[:5]
-
-        # 获取所有相关的管理员ID
-        admin_ids = [
-            customer.belong_uid for customer in customers if customer.belong_uid]
-        # 批量查询管理员信息
-        admins = Admin.objects.filter(id__in=admin_ids)
-        admin_dict = {admin.id: admin.username for admin in admins}
-
-        customer_list = [{
-            'id': customer.id,
-            'name': customer.name,
-            'status': customer.intent_status,
-            'belong_user': customer.principal.name if customer.principal else ''
-        } for customer in customers]
-
+    def _build_deal_customer_list(self, entities, user):
+        queryset = self._filter_deal_customer_queryset(user, entities).select_related(
+            'customer_source', 'principal'
+        ).order_by('-create_time')
+        page = entities.get('page', 1)
+        page_size = entities.get('page_size', get_default_page_size())
+        start_index = (page - 1) * page_size
+        customers = queryset[start_index:start_index + page_size]
         return {
             'type': 'list',
-            'items': customer_list,
-            'total': len(order_customer_ids),
+            'items': [{
+                'id': customer.id,
+                'name': customer.name,
+                'source': customer.customer_source.title if customer.customer_source else '',
+                'status': customer.intent_status,
+                'belong_user': customer.principal.name if customer.principal else '',
+            } for customer in customers],
+            'total': queryset.count(),
+            'page': page,
+            'page_size': page_size,
             'data_type': 'customer',
-            'time_range': 'this_month',
-            'event': 'deal'
+            'time_range': entities.get('time_range'),
+            'event': 'deal',
+            'status': 'deal',
         }
 
     def handle_customer_detail(
@@ -3530,55 +3504,25 @@ class QueryService:
     def handle_order_count_completed(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理已完成订单数量查询"""
-        from apps.customer.models import CustomerOrder
-        count = CustomerOrder.objects.filter(status='已完成').count()
-        return {
-            'type': 'count',
-            'value': count,
-            'data_type': 'order',
-            'status': 'completed'
-        }
+        return self.handle_order_count({**entities, 'status': 'completed'}, user)
 
     def handle_order_count_in_progress(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理进行中订单数量查询"""
-        from apps.customer.models import CustomerOrder
-        count = CustomerOrder.objects.filter(status='进行中').count()
-        return {
-            'type': 'count',
-            'value': count,
-            'data_type': 'order',
-            'status': 'in_progress'
-        }
+        return self.handle_order_count({**entities, 'status': 'processing'}, user)
 
     def handle_order_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理订单列表查询"""
-        from apps.customer.models import CustomerOrder, Customer
+        from apps.customer.models import CustomerOrder
 
-        # 构建查询集，考虑用户权限
-        queryset = CustomerOrder.objects.filter(delete_time=0).select_related('customer')
-
-        # 如果不是超级管理员，只显示归属自己的客户的订单
-        if not user.is_superuser:
-            # 获取当前用户的客户ID列表
-            user_customer_ids = Customer.objects.filter(
-                belong_uid=user.id).values_list(
-                'id', flat=True)
-            queryset = queryset.filter(customer_id__in=user_customer_ids)
-
-        # 应用筛选条件
-        status = entities.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
+        queryset = self._filter_customer_order_queryset(
+            CustomerOrder.objects.select_related('customer'), user, entities
+        )
 
         customer_id = entities.get('customer_id')
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)
-
-        customer_name = entities.get('customer_name')
-        if customer_name:
-            queryset = queryset.filter(customer__name__icontains=customer_name)
 
         # 应用排序
         queryset = queryset.order_by('-order_date')  # 默认按订单日期降序排列
@@ -3614,49 +3558,12 @@ class QueryService:
     def handle_order_total_last_month(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理上个月订单总额查询"""
-        from apps.customer.models import CustomerOrder
-        from datetime import datetime, timedelta
-
-        # 计算上个月的时间范围
-        today = datetime.today()
-        first_day_of_current_month = today.replace(day=1)
-        last_day_of_last_month = first_day_of_current_month - timedelta(days=1)
-        first_day_of_last_month = last_day_of_last_month.replace(day=1)
-
-        total_amount = CustomerOrder.objects.filter(
-            order_date__gte=first_day_of_last_month,
-            order_date__lte=last_day_of_last_month
-        ).aggregate(total=models.Sum('amount'))['total'] or 0
-
-        return {
-            'type': 'sum',
-            'value': total_amount,
-            'data_type': 'order',
-            'field': 'amount',
-            'time_range': 'last_month'
-        }
+        return self.handle_order_total({**entities, 'time_range': 'last_month'}, user)
 
     def handle_order_total_this_month(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理本月订单总额查询"""
-        from apps.customer.models import CustomerOrder
-        from datetime import datetime
-
-        # 计算本月的时间范围
-        today = datetime.today()
-        first_day_of_current_month = today.replace(day=1)
-
-        total_amount = CustomerOrder.objects.filter(
-            order_date__gte=first_day_of_current_month
-        ).aggregate(total=models.Sum('amount'))['total'] or 0
-
-        return {
-            'type': 'sum',
-            'value': total_amount,
-            'data_type': 'order',
-            'field': 'amount',
-            'time_range': 'this_month'
-        }
+        return self.handle_order_total({**entities, 'time_range': 'this_month'}, user)
 
     # 合同相关处理函数
     def handle_contract_count_effective(
@@ -3701,11 +3608,7 @@ class QueryService:
         from apps.contract.models import Contract
         import time
 
-        # 构建查询集
-        queryset = Contract.objects.all()
-
-        # 应用筛选条件
-        queryset = self._apply_contract_filters(queryset, entities)
+        queryset = self._filter_contract_queryset(Contract.objects.all(), user, entities)
 
         customer = entities.get('customer')
         if customer:
@@ -3746,7 +3649,8 @@ class QueryService:
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理合同总额查询"""
         from apps.contract.models import Contract
-        total_amount = Contract.objects.aggregate(
+        queryset = self._filter_contract_queryset(Contract.objects.all(), user, entities)
+        total_amount = queryset.aggregate(
             total=models.Sum('cost'))['total'] or 0
         return {
             'type': 'sum',
@@ -3759,50 +3663,17 @@ class QueryService:
     def handle_project_count_completed(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理已完成项目数量查询"""
-        from apps.project.models import Project
-        # 使用数字状态值3表示已完成
-        count = Project.objects.filter(status=3).count()
-        return {
-            'type': 'count',
-            'value': count,
-            'data_type': 'project',
-            'status': 'completed'
-        }
+        return self.handle_project_count({**entities, 'status': 'completed'}, user)
 
     def handle_project_count_paused(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理已暂停项目数量查询"""
-        from apps.project.models import Project
-        # 使用数字状态值5表示已暂停
-        count = Project.objects.filter(status=5).count()
-        return {
-            'type': 'count',
-            'value': count,
-            'data_type': 'project',
-            'status': 'paused'
-        }
+        return self.handle_project_count({**entities, 'status': 'paused'}, user)
 
     def handle_project_list_completed(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理已完成项目列表查询"""
-        from apps.project.models import Project
-        # 使用数字状态值3表示已完成
-        projects = Project.objects.filter(status=3)[:5]
-        project_list = [{
-            'id': project.id,
-            'name': project.name,
-            'status': project.status_display,  # 使用status_display属性获取显示名称
-            'manager': project.manager.username if project.manager else '',
-            'start_date': project.start_date.strftime('%Y-%m-%d') if project.start_date else '',
-            'end_date': project.end_date.strftime('%Y-%m-%d') if project.end_date else ''
-        } for project in projects]
-        return {
-            'type': 'list',
-            'items': project_list,
-            'total': Project.objects.filter(status=3).count(),
-            'data_type': 'project',
-            'status': 'completed'
-        }
+        return self.handle_project_list({**entities, 'status': 'completed'}, user)
 
     def handle_project_progress(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
@@ -3828,58 +3699,32 @@ class QueryService:
     def handle_invoice_count_issued(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理已开具发票数量查询"""
-        from apps.customer.models import CustomerInvoice
-        count = CustomerInvoice.objects.filter(status='已开具').count()
-        return {
-            'type': 'count',
-            'value': count,
-            'data_type': 'invoice',
-            'status': '已开具'
-        }
+        return self.handle_invoice_count({**entities, 'status': 'issued'}, user)
 
     def handle_invoice_count_unissued(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理未开具发票数量查询"""
-        from apps.customer.models import CustomerInvoice
-        count = CustomerInvoice.objects.filter(status='未开具').count()
-        return {
-            'type': 'count',
-            'value': count,
-            'data_type': 'invoice',
-            'status': '未开具'
-        }
+        return self.handle_invoice_count({**entities, 'status': 'draft'}, user)
 
     def handle_invoice_list(
             self, entities: Dict[str, Any], user: User) -> Dict[str, Any]:
         """处理发票列表查询"""
-        from apps.customer.models import CustomerInvoice, Customer
+        from apps.customer.models import CustomerInvoice
 
-        # 构建查询集，考虑用户权限
-        queryset = CustomerInvoice.objects.all().select_related('customer')
-
-        # 如果不是超级管理员，只显示归属自己的客户的发票
-        if not user.is_superuser:
-            # 获取当前用户的客户ID列表
-            user_customer_ids = Customer.objects.filter(
-                belong_uid=user.id).values_list(
-                'id', flat=True)
-            queryset = queryset.filter(customer_id__in=user_customer_ids)
-
-        # 应用筛选条件
-        status = entities.get('status')
-        if status:
-            queryset = queryset.filter(status=status)
+        queryset = self._filter_customer_invoice_queryset(
+            CustomerInvoice.objects.select_related('customer'), user, entities
+        )
 
         customer_id = entities.get('customer_id')
         if customer_id:
             queryset = queryset.filter(customer_id=customer_id)
 
-        invoice_no = entities.get('invoice_no')
-        if invoice_no:
-            queryset = queryset.filter(invoice_no__icontains=invoice_no)
+        invoice_number = entities.get('invoice_number') or entities.get('invoice_no')
+        if invoice_number:
+            queryset = queryset.filter(invoice_number__icontains=invoice_number)
 
         # 应用排序
-        queryset = queryset.order_by('-issue_date')  # 默认按开票日期降序排列
+        queryset = queryset.order_by('-invoice_date')
 
         # 应用分页
         page = entities.get('page', 1)
@@ -3891,11 +3736,11 @@ class QueryService:
         invoice_list = [{
             'id': invoice.id,
             'customer_name': invoice.customer.name if invoice.customer else '',
-            'invoice_no': invoice.invoice_no,
+            'invoice_no': invoice.invoice_number,
             'amount': invoice.amount,
             'status': invoice.status,
-            'issue_date': invoice.issue_date.strftime('%Y-%m-%d') if invoice.issue_date else '',
-            'due_date': invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else '',
+            'issue_date': invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else '',
+            'due_date': '',
             'create_time': invoice.create_time.strftime('%Y-%m-%d %H:%M:%S') if invoice.create_time else ''
         } for invoice in invoices]
 
@@ -6515,13 +6360,27 @@ class QueryService:
             total = result.get('total', 0)
             data_type_name = data_type_names.get(data_type, data_type)
             status = result.get('status')
+            status_name = {
+                'deal': '成交',
+                'potential': '潜在',
+                'pending': '待处理',
+                'processing': '处理中',
+                'completed': '已完成',
+                'issued': '已开票',
+                'draft': '草稿',
+                'reviewing': '审核中',
+                'effective': '已生效',
+                'approved': '已通过',
+                'rejected': '已拒绝',
+                'cancelled': '已取消',
+                'in_progress': '进行中',
+                'paused': '已暂停',
+            }.get(status, status)
             time_range = result.get('time_range')
             event = result.get('event')
 
             if not items:
-                if status:
-                    return f"暂无{status}的{data_type_name}数据。"
-                elif time_range and event:
+                if time_range and event:
                     if event == 'deal':
                         if time_range == 'last_month':
                             return f"暂无上个月成交的{data_type_name}数据。"
@@ -6529,6 +6388,8 @@ class QueryService:
                             return f"暂无本月成交的{data_type_name}数据。"
                     elif event == 'progress':
                         return f"暂无{data_type_name}进度数据。"
+                elif status_name:
+                    return f"暂无{status_name}的{data_type_name}数据。"
                 else:
                     return f"暂无{data_type_name}数据。"
 
@@ -6540,9 +6401,7 @@ class QueryService:
 
             item_str = '、'.join(str(item) for item in item_list if item is not None)
 
-            if status:
-                return f"共有{total}个{status}的{data_type_name}，前{len(items)}个是：{item_str}。"
-            elif time_range and event:
+            if time_range and event:
                 if event == 'deal':
                     if time_range == 'last_month':
                         return f"上个月共有{total}个成交{data_type_name}，前{len(items)}个是：{item_str}。"
@@ -6550,6 +6409,8 @@ class QueryService:
                         return f"本月共有{total}个成交{data_type_name}，前{len(items)}个是：{item_str}。"
                 elif event == 'progress':
                     return f"共有{total}个{data_type_name}，前{len(items)}个的进度信息：{item_str}。"
+            elif status_name:
+                return f"共有{total}个{status_name}的{data_type_name}，前{len(items)}个是：{item_str}。"
             else:
                 return f"共有{total}个{data_type_name}，前{len(items)}个是：{item_str}。"
 
