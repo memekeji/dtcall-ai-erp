@@ -127,3 +127,6 @@ _patch*.py
 _improve.py
 _write_exam_list.py
 project_knowledge.db
+
+# Standalone official site project (must not be committed to this repo)
+官网-独立项目/
