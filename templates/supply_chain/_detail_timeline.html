@@ -1,0 +1,13 @@
+<div class="sc-timeline">
+    {% for event in events %}
+    <div class="sc-timeline-item">
+        <div class="sc-timeline-dot"></div>
+        <div class="sc-timeline-content">
+            <div class="sc-timeline-title">{{ event.title }}</div>
+            <div class="sc-note">{{ event.create_time|date:'Y-m-d H:i' }} · {{ event.operator|default:'系统' }}</div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="sc-empty">暂无操作记录</div>
+    {% endfor %}
+</div>

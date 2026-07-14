@@ -1,0 +1,44 @@
+{% extends 'include/common.html' %}{% load static %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block extra_css %}<link rel="stylesheet" href="{% static 'css/supply_chain.css' %}">{% endblock %}
+{% block content %}<div class="sc-page-shell">
+{% url 'supply_chain:forecast_list' as back_url %}
+{% include 'supply_chain/_detail_header.html' with record_code=plan.code status_text=plan.get_status_display source_code=plan.source_code update_time=plan.update_time %}
+<div class="sc-detail-layout"><div class="sc-detail-main">
+    <div class="sc-stat-grid">
+        <div class="sc-stat-card"><div class="sc-stat-label">系统预测量</div><div class="sc-stat-value">{{ latest_result.predicted_quantity|default:'-' }}</div></div>
+        <div class="sc-stat-card"><div class="sc-stat-label">建议备料量</div><div class="sc-stat-value">{{ latest_result.recommended_quantity|default:'-' }}</div></div>
+        <div class="sc-stat-card"><div class="sc-stat-label">置信度</div><div class="sc-stat-value">{% if latest_result %}{{ latest_result.confidence }}%{% else %}-{% endif %}</div></div>
+    </div>
+    <div class="layui-card"><div class="layui-card-header">实时业务输入</div><div class="layui-card-body">
+        <div class="sc-kv-grid">
+            <div><span>近90天出货</span><strong>{{ live_inputs.shipped_quantity }}</strong></div>
+            <div><span>当前可用库存</span><strong>{{ live_inputs.inventory_quantity }}</strong></div>
+            <div><span>执行中在制</span><strong>{{ live_inputs.wip_quantity }}</strong></div>
+            <div><span>采购在途</span><strong>{{ live_inputs.inbound_quantity }}</strong></div>
+            <div><span>计划需求基线</span><strong>{{ live_inputs.predicted_quantity }}</strong></div>
+            <div><span>日均需求</span><strong>{{ live_inputs.avg_daily_demand }}</strong></div>
+        </div><div class="sc-note">{{ live_inputs.source_note }}</div>
+    </div></div>
+    <div class="layui-card"><div class="layui-card-header">预测与评审历史</div><div class="layui-card-body sc-local-scroll">
+        <table class="layui-table" lay-skin="line"><thead><tr><th>生成时间</th><th>预测量</th><th>建议备料</th><th>风险</th><th>置信度</th><th>评审</th></tr></thead><tbody>
+        {% for result in results %}<tr><td>{{ result.create_time|date:'Y-m-d H:i' }}</td><td>{{ result.predicted_quantity }}</td><td>{{ result.recommended_quantity }}</td><td>{{ result.risk_level }}</td><td>{{ result.confidence }}%</td><td>{% if result.reviews.first %}{{ result.reviews.first.get_status_display }}{% else %}未发起{% endif %}</td></tr>{% empty %}<tr><td colspan="6" class="sc-empty">尚未生成预测结果</td></tr>{% endfor %}
+        </tbody></table>
+    </div></div>
+    <div class="layui-card"><div class="layui-card-header">操作时间线</div><div class="layui-card-body">{% include 'supply_chain/_detail_timeline.html' %}</div></div>
+</div><aside class="sc-detail-side">
+    <div class="layui-card sc-sticky-panel"><div class="layui-card-header">下一步操作</div><div class="layui-card-body">
+        <a href="{% url 'supply_chain:forecast_qa' plan.id %}" class="layui-btn layui-btn-fluid layui-btn-primary">进入智能问答</a>
+        {% if plan.status == 'draft' or plan.status == 'generated' or plan.status == 'rejected' %}
+        <form method="post" action="{% url 'supply_chain:forecast_run' plan.id %}" class="sc-work-form">{% csrf_token %}
+            <div class="sc-form-hint">系统自动读取销售、库存、生产与采购数据。</div>
+            <label class="sc-field-label">人工修正量（可选）</label><input type="number" step="0.01" name="manual_adjustment" class="layui-input">
+            <label class="sc-field-label">实际需求量（回溯时填写）</label><input type="number" step="0.01" name="actual_quantity" class="layui-input">
+            <button class="layui-btn layui-btn-fluid">生成预测并发起评审</button>
+        </form>{% endif %}
+        {% if latest_review and latest_review.status == 'pending' %}
+        <form method="post" action="{% url 'supply_chain:forecast_review' latest_review.id %}" class="sc-work-form">{% csrf_token %}<input type="hidden" name="decision" value="approve"><input name="comment" placeholder="通过意见" class="layui-input"><button class="layui-btn layui-btn-fluid layui-btn-normal">评审通过</button></form>
+        <form method="post" action="{% url 'supply_chain:forecast_review' latest_review.id %}" class="sc-work-form">{% csrf_token %}<input type="hidden" name="decision" value="reject"><input name="comment" placeholder="驳回原因" class="layui-input"><button class="layui-btn layui-btn-fluid layui-btn-danger">评审驳回</button></form>
+        {% endif %}
+    </div></div>
+</aside></div></div>{% endblock %}

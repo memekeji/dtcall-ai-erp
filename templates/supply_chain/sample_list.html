@@ -85,7 +85,7 @@
                         <th>交期</th>
                         <th>数量</th>
                         <th>状态</th>
-                        <th width="340">操作</th>
+                        <th width="110">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -111,41 +111,9 @@
                             {% endif %}
                         </td>
                         <td class="sc-list-actions">
-                            <details class="sc-action-disclosure">
-                                <summary>展开到货与领样操作</summary>
-                            <div class="sc-action-panel">
-                                <div class="sc-action-panel-title">到货登记</div>
-                                <div class="sc-action-panel-note">样品到仓后填写数量、地点，可附实物照片留档。</div>
-                                <form method="post" action="{% url 'supply_chain:sample_receive' request_obj.id %}" enctype="multipart/form-data">
-                                    {% csrf_token %}
-                                    <label class="sc-field-label" for="received-qty-{{ request_obj.id }}">到货数量</label>
-                                    <input id="received-qty-{{ request_obj.id }}" type="number" step="0.01" name="received_quantity" placeholder="例如：3" class="layui-input">
-                                    <label class="sc-field-label" for="received-location-{{ request_obj.id }}">到货地点</label>
-                                    <input id="received-location-{{ request_obj.id }}" type="text" name="location" placeholder="例如：研发样品柜" class="layui-input">
-                                    <label class="sc-field-label" for="received-photo-{{ request_obj.id }}">到货照片（可选）</label>
-                                    <input id="received-photo-{{ request_obj.id }}" type="file" name="photo_file" accept=".png,.jpg,.jpeg" class="layui-input">
-                                    <div class="sc-note">仅支持 PNG、JPG，最大5MB，用于到货实物留档。</div>
-                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">登记到货</button>
-                                </form>
-                            </div>
-
-                            <div class="sc-action-panel secondary">
-                                <div class="sc-action-panel-title">领样闭环</div>
-                                <div class="sc-action-panel-note">工程师领样后填写备注并确认，系统自动记录领样时间。</div>
-                                <form method="post" action="{% url 'supply_chain:sample_pickup' request_obj.id %}">
-                                    {% csrf_token %}
-                                    <label class="sc-field-label" for="pickup-note-{{ request_obj.id }}">领样备注</label>
-                                    <input id="pickup-note-{{ request_obj.id }}" type="text" name="note" placeholder="例如：已交张工试测" class="layui-input">
-                                    <button type="submit" class="layui-btn layui-btn-xs">确认领样</button>
-                                </form>
-                                {% if request_obj.status == 'pickup_pending' %}
-                                <form method="post" action="{% url 'supply_chain:sample_remind' request_obj.id %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-warm">发送超期提醒</button>
-                                </form>
-                                {% endif %}
-                            </div>
-                            </details>
+                            <a href="{% url 'supply_chain:sample_detail' request_obj.id %}" class="layui-btn layui-btn-xs layui-btn-normal">
+                                <i class="layui-icon layui-icon-form"></i> 查看处理
+                            </a>
                         </td>
                     </tr>
                 {% empty %}

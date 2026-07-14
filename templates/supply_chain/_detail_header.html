@@ -1,0 +1,21 @@
+<div class="layui-card sc-detail-header">
+    <div class="layui-card-body">
+        <div class="sc-toolbar">
+            <div class="sc-toolbar-left">
+                <div>
+                    <div class="sc-detail-eyebrow">{{ record_code }}</div>
+                    <h3>{{ page_title }}</h3>
+                    <div class="sc-summary-line">
+                        <span>状态：{{ status_text }}</span>
+                        <span>来源：{{ source_code|default:'人工创建' }}</span>
+                        <span>更新：{{ update_time|date:'Y-m-d H:i' }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sc-toolbar-right">
+                {% if source_url %}<a href="{{ source_url }}" class="layui-btn layui-btn-sm layui-btn-primary">查看上游单据</a>{% endif %}
+                <a href="{{ back_url }}" class="layui-btn layui-btn-sm layui-btn-primary">返回列表</a>
+            </div>
+        </div>
+    </div>
+</div>

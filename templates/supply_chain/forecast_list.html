@@ -85,7 +85,7 @@
                         <th>状态</th>
                         <th>最新建议备料</th>
                         <th>评审状态</th>
-                        <th width="380">操作</th>
+                        <th width="110">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -121,33 +121,9 @@
                             {% endif %}
                         </td>
                         <td class="sc-list-actions">
-                            <a href="{% url 'supply_chain:forecast_qa' plan.id %}" class="layui-btn layui-btn-xs layui-btn-primary">智能问答</a>
-                            <details class="sc-action-disclosure">
-                                <summary>展开预测与评审</summary>
-                            <form method="post" action="{% url 'supply_chain:forecast_run' plan.id %}">
-                                {% csrf_token %}
-                                <div class="sc-note">系统自动读取销售订单、库存、生产在制及采购在途；人工仅填写有依据的修正量。</div>
-                                <div class="layui-row layui-col-space10">
-                                    <div class="layui-col-md6"><input type="number" step="0.01" name="manual_adjustment" placeholder="人工修正量（可选）" class="layui-input"></div>
-                                    <div class="layui-col-md6"><input type="number" step="0.01" name="actual_quantity" placeholder="实际需求量（回溯时填写）" class="layui-input"></div>
-                                </div>
-                                <button type="submit" class="layui-btn layui-btn-xs">按实时数据生成预测</button>
-                            </form>
-                            {% if latest and latest.reviews.first and latest.reviews.first.status == 'pending' %}
-                            <form method="post" action="{% url 'supply_chain:forecast_review' latest.reviews.first.id %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="decision" value="approve">
-                                <input type="text" name="comment" placeholder="通过意见" class="layui-input">
-                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">评审通过</button>
-                            </form>
-                            <form method="post" action="{% url 'supply_chain:forecast_review' latest.reviews.first.id %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="decision" value="reject">
-                                <input type="text" name="comment" placeholder="驳回原因" class="layui-input">
-                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-danger">评审驳回</button>
-                            </form>
-                            {% endif %}
-                            </details>
+                            <a href="{% url 'supply_chain:forecast_detail' plan.id %}" class="layui-btn layui-btn-xs layui-btn-normal">
+                                <i class="layui-icon layui-icon-form"></i> 查看处理
+                            </a>
                         </td>
                     </tr>
                     {% endwith %}

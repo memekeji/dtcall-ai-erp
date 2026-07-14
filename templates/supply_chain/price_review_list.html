@@ -82,8 +82,8 @@
                         <th>物料 / 供应商</th>
                         <th>报价</th>
                         <th>状态</th>
-                        <th width="260">AI解析规格书</th>
-                        <th width="340">AI成本复核分析</th>
+                        <th>复核摘要</th>
+                        <th width="110">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -100,63 +100,14 @@
                                 {{ order.get_status_display }}
                             </span>
                         </td>
-                        <td class="sc-list-actions">
-                            <details class="sc-action-disclosure">
-                                <summary>展开规格书解析</summary>
-                            <form method="post" action="{% url 'supply_chain:price_review_parse_document' order.id %}" enctype="multipart/form-data">
-                                {% csrf_token %}
-                                <label class="sc-field-label" for="price-doc-{{ order.id }}">规格书附件（可选）</label>
-                                <input id="price-doc-{{ order.id }}" type="file" name="document_file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" class="layui-input">
-                                <div class="sc-note">支持 PDF、Word、TXT、PNG、JPG，最大15MB；附件用于提取规格和成本参数。</div>
-                                <label class="sc-field-label" for="price-text-{{ order.id }}">规格文本（与附件二选一）</label>
-                                <textarea id="price-text-{{ order.id }}" name="raw_text" rows="2" placeholder="直接粘贴材质、尺寸、工艺、包装等规格" class="layui-textarea"></textarea>
-                                <button type="submit" class="layui-btn layui-btn-xs">AI解析规格书</button>
-                            </form>
-                            </details>
+                        <td>
+                            <div class="sc-note">规格文档 {{ order.documents.count }} 份 / 成本项 {{ order.components.count }} 项</div>
+                            {% if order.conclusion and order.conclusion.summary %}<div>{{ order.conclusion.summary|truncatechars:42 }}</div>{% else %}<div class="sc-note">尚未生成复核结论</div>{% endif %}
                         </td>
                         <td class="sc-list-actions">
-                            <details class="sc-action-disclosure">
-                                <summary>展开成本复核</summary>
-                            <form method="post" action="{% url 'supply_chain:price_review_analyze' order.id %}">
-                                {% csrf_token %}
-                                <div class="layui-row layui-col-space5">
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="material_cost" placeholder="原材料" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="process_cost" placeholder="工艺" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="labor_cost" placeholder="人工" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="loss_cost" placeholder="损耗" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="package_cost" placeholder="包装" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="logistics_cost" placeholder="物流" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="profit_cost" placeholder="利润" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="text" name="historical_prices" placeholder="历史价 如11,12" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="market_price" placeholder="市场价" class="layui-input">
-                                    </div>
-                                    <div class="layui-col-md6">
-                                        <input type="number" step="0.0001" name="target_price" placeholder="目标价" class="layui-input">
-                                    </div>
-                                </div>
-                                <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">AI生成复核报告</button>
-                                {% if order.conclusion and order.conclusion.summary %}
-                                <div class="sc-note" style="margin-top:6px;">{{ order.conclusion.summary|truncatewords:24 }}</div>
-                                {% endif %}
-                            </form>
-                            </details>
+                            <a href="{% url 'supply_chain:price_review_detail' order.id %}" class="layui-btn layui-btn-xs layui-btn-normal">
+                                <i class="layui-icon layui-icon-form"></i> 查看处理
+                            </a>
                         </td>
                     </tr>
                 {% empty %}

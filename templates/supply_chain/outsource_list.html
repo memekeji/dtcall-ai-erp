@@ -84,7 +84,7 @@
                         <th>委外数量</th>
                         <th>状态</th>
                         <th>齐套明细</th>
-                        <th width="260">操作</th>
+                        <th width="110">操作</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -111,34 +111,9 @@
                             {% endif %}
                         </td>
                         <td class="sc-list-actions">
-                            {% if order.status == 'draft' or order.status == 'shortage' %}<form method="post" action="{% url 'supply_chain:outsource_check' order.id %}">
-                                {% csrf_token %}
-                                <button type="submit" class="layui-btn layui-btn-xs">齐套校验</button>
-                            </form>{% endif %}
-                            <div class="sc-action-group">
-                                {% if order.status == 'ready' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="start_picking">
-                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-normal">开始备料</button>
-                                </form>{% endif %}
-                                {% if order.status == 'picking' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="mark_issued">
-                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-warm">确认发料</button>
-                                </form>{% endif %}
-                            </div>
-                            <div class="sc-action-group">
-                                {% if order.status == 'issued' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="notify_pickup">
-                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-primary">内部通知</button>
-                                </form>{% endif %}
-                                {% if order.status == 'notified' %}<form method="post" action="{% url 'supply_chain:outsource_status_update' order.id %}">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="action" value="close_order">
-                                    <button type="submit" class="layui-btn layui-btn-xs layui-btn-danger">关闭订单</button>
-                                </form>{% endif %}
-                            </div>
+                            <a href="{% url 'supply_chain:outsource_detail' order.id %}" class="layui-btn layui-btn-xs layui-btn-normal">
+                                <i class="layui-icon layui-icon-form"></i> 查看处理
+                            </a>
                         </td>
                     </tr>
                     {% empty %}

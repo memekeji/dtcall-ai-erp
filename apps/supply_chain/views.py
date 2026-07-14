@@ -13,7 +13,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.contract.models import Product, Supplier
-from apps.inventory.models import Inventory, InventoryItem
+from apps.inventory.models import Inventory, InventoryItem, PurchasePriceHistory
 from apps.production.models import BOM, ProductionPlan
 
 from .forms import (
@@ -51,6 +51,7 @@ from .models import (
     SamplePickupRecord,
     SampleReceipt,
     SampleRequest,
+    SupplyChainEventLog,
 )
 from .services.event_service import log_supply_chain_event, send_supply_chain_notification
 from .services.ai_services import supply_chain_ai
@@ -186,6 +187,49 @@ def _paginate_queryset(request, queryset, per_page=10):
     return paginator.get_page(request.GET.get('page') or 1)
 
 
+def _get_object_events(object_type, object_id, limit=20):
+    return SupplyChainEventLog.objects.filter(
+        object_type=object_type,
+        object_id=object_id,
+    ).select_related('operator')[:limit]
+
+
+def _source_url(source_type, source_id):
+    if not source_id:
+        return ''
+    routes = {
+        'production_plan': 'production:production_plan_detail',
+        'material_request': 'production:material_request_detail',
+        'purchase_order': 'inventory:purchase_order_detail',
+    }
+    route_name = routes.get(source_type)
+    return reverse(route_name, args=[source_id]) if route_name else ''
+
+
+def _source_snapshot_rows(snapshot):
+    field_labels = {
+        'code': '来源单号',
+        'quantity': '需求数量',
+        'required_date': '需求日期',
+        'request_date': '申请日期',
+        'material_name': '物料名称',
+        'material_code': '物料编码',
+        'order_type': '订单类型',
+        'is_urgent': '是否紧急',
+        'lead_time_days': '采购提前期（天）',
+        'suggested_release_date': '建议下达日期',
+        'production_plan_code': '生产计划',
+        'purchase_order_code': '采购订单',
+    }
+    return [
+        {
+            'label': field_labels.get(str(key), str(key).replace('_', ' ')),
+            'value': value,
+        }
+        for key, value in (snapshot or {}).items()
+    ]
+
+
 def _build_supply_chain_source_summary():
     risk_rows = build_inventory_analysis_summary().get('risk_rows', [])
     return {
@@ -292,10 +336,34 @@ def forecast_create(request):
 
 
 @login_required
+def forecast_detail(request, pk):
+    plan = get_object_or_404(
+        DemandForecastPlan.objects.select_related('product', 'created_by').prefetch_related(
+            'snapshots', 'results__reviews',
+        ),
+        pk=pk,
+    )
+    latest_result = plan.results.order_by('-create_time').first()
+    latest_review = latest_result.reviews.order_by('-create_time').first() if latest_result else None
+    context = {
+        'page_title': '预测业务工作台',
+        'plan': plan,
+        'latest_result': latest_result,
+        'latest_review': latest_review,
+        'live_inputs': build_live_forecast_inputs(plan),
+        'snapshots': plan.snapshots.order_by('-create_time')[:10],
+        'results': plan.results.prefetch_related('reviews').order_by('-create_time')[:10],
+        'events': _get_object_events('demand_forecast_plan', plan.id),
+        'source_url': _source_url(plan.source_type, plan.source_id),
+    }
+    return render(request, 'supply_chain/forecast_detail.html', context)
+
+
+@login_required
 def forecast_run(request, pk):
     plan = get_object_or_404(DemandForecastPlan, pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:forecast_list')
+        return redirect('supply_chain:forecast_detail', pk=pk)
     allowed_statuses = {
         DemandForecastPlan.STATUS_DRAFT,
         DemandForecastPlan.STATUS_GENERATED,
@@ -303,18 +371,18 @@ def forecast_run(request, pk):
     }
     if plan.status not in allowed_statuses:
         messages.error(request, '当前预测计划已结束，不能重复生成预测结果')
-        return redirect('supply_chain:forecast_list')
+        return redirect('supply_chain:forecast_detail', pk=pk)
 
     form = ForecastRunForm(request.POST)
     if not form.is_valid():
         messages.error(request, '预测参数不完整')
-        return redirect('supply_chain:forecast_list')
+        return redirect('supply_chain:forecast_detail', pk=pk)
 
     with transaction.atomic():
         plan = DemandForecastPlan.objects.select_for_update().get(pk=pk)
         if plan.status not in allowed_statuses:
             messages.error(request, '预测计划状态已变化，请刷新页面后重试')
-            return redirect('supply_chain:forecast_list')
+            return redirect('supply_chain:forecast_detail', pk=pk)
         live_inputs = build_live_forecast_inputs(plan)
         payload = build_snapshot_payload(
             shipped_quantity=live_inputs['shipped_quantity'],
@@ -407,11 +475,11 @@ def forecast_run(request, pk):
         user_ids=[plan.created_by_id] if plan.created_by_id else [],
         related_object_type='demand_forecast_plan',
         related_object_id=plan.id,
-        action_url=reverse('supply_chain:forecast_list'),
+        action_url=reverse('supply_chain:forecast_detail', args=[plan.id]),
         sender=request.user,
     )
     messages.success(request, '预测结果已生成')
-    return redirect('supply_chain:forecast_list')
+    return redirect('supply_chain:forecast_detail', pk=plan.id)
 
 
 @login_required
@@ -420,13 +488,14 @@ def forecast_review(request, pk):
         MaterialPreparationReview.objects.select_related('forecast_result__forecast_plan'),
         pk=pk,
     )
+    plan_id = review.forecast_result.forecast_plan_id
     if request.method != 'POST':
-        return redirect('supply_chain:forecast_list')
+        return redirect('supply_chain:forecast_detail', pk=plan_id)
 
     form = ForecastReviewForm(request.POST)
     if not form.is_valid():
         messages.error(request, '评审参数无效')
-        return redirect('supply_chain:forecast_list')
+        return redirect('supply_chain:forecast_detail', pk=plan_id)
     decision = form.cleaned_data['decision']
     with transaction.atomic():
         review = MaterialPreparationReview.objects.select_for_update().select_related(
@@ -434,7 +503,7 @@ def forecast_review(request, pk):
         ).get(pk=pk)
         if review.status != MaterialPreparationReview.STATUS_PENDING:
             messages.error(request, '当前评审单已处理，请勿重复提交')
-            return redirect('supply_chain:forecast_list')
+            return redirect('supply_chain:forecast_detail', pk=plan_id)
         plan = DemandForecastPlan.objects.select_for_update().get(
             pk=review.forecast_result.forecast_plan_id,
         )
@@ -469,12 +538,12 @@ def forecast_review(request, pk):
             user_ids=notify_ids,
             related_object_type='material_preparation_review',
             related_object_id=review.id,
-            action_url=reverse('supply_chain:forecast_list'),
+            action_url=reverse('supply_chain:forecast_detail', args=[plan.id]),
             sender=request.user,
             priority=2 if decision == 'approve' else 3,
         )
     messages.success(request, '备料评审已完成')
-    return redirect('supply_chain:forecast_list')
+    return redirect('supply_chain:forecast_detail', pk=plan.id)
 
 
 @login_required
@@ -534,24 +603,54 @@ def outsource_create(request):
 
 
 @login_required
+def outsource_detail(request, pk):
+    order = get_object_or_404(
+        OutsourceIssueOrder.objects.select_related(
+            'product', 'supplier', 'production_plan__bom', 'created_by',
+        ).prefetch_related('items__inventory_item', 'status_logs'),
+        pk=pk,
+    )
+    items = list(order.items.all())
+    status_labels = dict(OutsourceIssueOrder.STATUS_CHOICES)
+    status_logs = list(order.status_logs.all())
+    for status_log in status_logs:
+        status_log.status_label = status_labels.get(status_log.to_status, status_log.to_status)
+    context = {
+        'page_title': '委外发料工作台',
+        'order': order,
+        'items': items,
+        'shortage_count': sum(
+            item.status == OutsourceIssueItem.STATUS_SHORTAGE for item in items
+        ),
+        'mismatch_count': sum(
+            item.status == OutsourceIssueItem.STATUS_SPEC_MISMATCH for item in items
+        ),
+        'status_logs': status_logs,
+        'events': _get_object_events('outsource_issue_order', order.id),
+        'source_url': _source_url('production_plan', order.production_plan_id),
+    }
+    return render(request, 'supply_chain/outsource_detail.html', context)
+
+
+@login_required
 def outsource_check(request, pk):
     order = get_object_or_404(OutsourceIssueOrder.objects.select_related('production_plan__bom', 'product'), pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:outsource_list')
+        return redirect('supply_chain:outsource_detail', pk=pk)
     if order.status not in {
         OutsourceIssueOrder.STATUS_DRAFT,
         OutsourceIssueOrder.STATUS_SHORTAGE,
         OutsourceIssueOrder.STATUS_READY,
     }:
         messages.error(request, '当前状态不允许重新执行齐套校验')
-        return redirect('supply_chain:outsource_list')
+        return redirect('supply_chain:outsource_detail', pk=pk)
 
     bom = getattr(order.production_plan, 'bom', None)
     if bom is None and order.product_id:
         bom = BOM.objects.filter(product=order.product).order_by('-id').first()
     if bom is None:
         messages.error(request, '未找到可用BOM，无法执行齐套校验')
-        return redirect('supply_chain:outsource_list')
+        return redirect('supply_chain:outsource_detail', pk=pk)
 
     inventory_lookup = _build_outsource_inventory_lookup(
         bom.items.values_list('material_code', flat=True),
@@ -625,23 +724,23 @@ def outsource_check(request, pk):
             user_ids=[order.created_by_id],
             related_object_type='outsource_issue_order',
             related_object_id=order.id,
-            action_url=reverse('supply_chain:outsource_list'),
+            action_url=reverse('supply_chain:outsource_detail', args=[order.id]),
             sender=request.user,
         )
     messages.success(request, '委外发料齐套校验完成')
-    return redirect('supply_chain:outsource_list')
+    return redirect('supply_chain:outsource_detail', pk=order.id)
 
 
 @login_required
 def outsource_status_update(request, pk):
     order = get_object_or_404(OutsourceIssueOrder, pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:outsource_list')
+        return redirect('supply_chain:outsource_detail', pk=pk)
 
     form = OutsourceStatusForm(request.POST)
     if not form.is_valid():
         messages.error(request, '状态流转参数无效')
-        return redirect('supply_chain:outsource_list')
+        return redirect('supply_chain:outsource_detail', pk=pk)
 
     action = form.cleaned_data['action']
     transition = OUTSOURCE_STATUS_ACTIONS[action]
@@ -649,7 +748,7 @@ def outsource_status_update(request, pk):
         order = OutsourceIssueOrder.objects.select_for_update().get(pk=pk)
         if order.status not in transition['from_statuses']:
             messages.error(request, f'当前状态 {order.get_status_display()} 不允许执行该动作')
-            return redirect('supply_chain:outsource_list')
+            return redirect('supply_chain:outsource_detail', pk=pk)
         new_status = transition['to_status']
         message_text = transition['message']
         previous_status = order.status
@@ -678,12 +777,12 @@ def outsource_status_update(request, pk):
             user_ids=[order.created_by_id],
             related_object_type='outsource_issue_order',
             related_object_id=order.id,
-            action_url=reverse('supply_chain:outsource_list'),
+            action_url=reverse('supply_chain:outsource_detail', args=[order.id]),
             sender=request.user,
             priority=2,
         )
     messages.success(request, '委外发料状态已更新')
-    return redirect('supply_chain:outsource_list')
+    return redirect('supply_chain:outsource_detail', pk=order.id)
 
 
 @login_required
@@ -742,15 +841,45 @@ def pr_review_create(request):
 
 
 @login_required
+def pr_review_detail(request, pk):
+    task = get_object_or_404(
+        PRReviewTask.objects.select_related('created_by', 'reviewer').prefetch_related(
+            'matched_rules', 'evidence_items__rule',
+        ),
+        pk=pk,
+    )
+    action_labels = dict(PRReviewRule.ACTION_CHOICES)
+    evidence_rows = []
+    for evidence_item in task.evidence_items.all():
+        evidence_rows.append({
+            'label': evidence_item.label,
+            'value': action_labels.get(evidence_item.value, evidence_item.value),
+        })
+    context = {
+        'page_title': 'PR审核工作台',
+        'task': task,
+        'recommended_action_label': action_labels.get(
+            task.recommended_action,
+            '待识别',
+        ),
+        'evidence_rows': evidence_rows,
+        'source_snapshot_rows': _source_snapshot_rows(task.source_snapshot),
+        'events': _get_object_events('pr_review_task', task.id),
+        'source_url': _source_url(task.source_type, task.source_id),
+    }
+    return render(request, 'supply_chain/pr_review_detail.html', context)
+
+
+@login_required
 def pr_review_evaluate(request, pk):
     task = get_object_or_404(PRReviewTask, pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:pr_review_list')
+        return redirect('supply_chain:pr_review_detail', pk=pk)
 
     form = PRReviewEvaluateForm(request.POST)
     if not form.is_valid():
         messages.error(request, 'PR 审核载荷无效')
-        return redirect('supply_chain:pr_review_list')
+        return redirect('supply_chain:pr_review_detail', pk=pk)
 
     payload = form.build_payload()
     rules = list(PRReviewRule.objects.filter(is_active=True).order_by('priority').values(
@@ -828,29 +957,29 @@ def pr_review_evaluate(request, pk):
             user_ids=notify_ids,
             related_object_type='pr_review_task',
             related_object_id=task.id,
-            action_url=reverse('supply_chain:pr_review_list'),
+            action_url=reverse('supply_chain:pr_review_detail', args=[task.id]),
             sender=request.user,
             priority=3,
         )
     messages.success(request, 'PR 智能审核已完成')
-    return redirect('supply_chain:pr_review_list')
+    return redirect('supply_chain:pr_review_detail', pk=task.id)
 
 
 @login_required
 def pr_review_approve(request, pk):
     task = get_object_or_404(PRReviewTask, pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:pr_review_list')
+        return redirect('supply_chain:pr_review_detail', pk=pk)
 
     form = PRQuickApproveForm(request.POST)
     if not form.is_valid():
         messages.error(request, '审批备注无效')
-        return redirect('supply_chain:pr_review_list')
+        return redirect('supply_chain:pr_review_detail', pk=pk)
     with transaction.atomic():
         task = PRReviewTask.objects.select_for_update().get(pk=pk)
         if task.status in {PRReviewTask.STATUS_DONE, PRReviewTask.STATUS_REJECTED}:
             messages.error(request, '当前任务已处理，不能重复审批')
-            return redirect('supply_chain:pr_review_list')
+            return redirect('supply_chain:pr_review_detail', pk=pk)
         task.status = PRReviewTask.STATUS_DONE
         task.reviewer = request.user
         if not task.recommended_action:
@@ -880,12 +1009,12 @@ def pr_review_approve(request, pk):
             user_ids=notify_ids,
             related_object_type='pr_review_task',
             related_object_id=task.id,
-            action_url=reverse('supply_chain:pr_review_list'),
+            action_url=reverse('supply_chain:pr_review_detail', args=[task.id]),
             sender=request.user,
             priority=2,
         )
     messages.success(request, 'PR 已一键审批')
-    return redirect('supply_chain:pr_review_list')
+    return redirect('supply_chain:pr_review_detail', pk=task.id)
 
 
 @login_required
@@ -991,15 +1120,77 @@ def price_review_create(request):
 
 
 @login_required
+def price_review_detail(request, pk):
+    order = get_object_or_404(
+        PriceReviewOrder.objects.select_related(
+            'purchase_order', 'inventory_item', 'supplier', 'created_by',
+        ).prefetch_related('documents', 'components'),
+        pk=pk,
+    )
+    price_history = PurchasePriceHistory.objects.none()
+    if order.inventory_item_id:
+        price_history = PurchasePriceHistory.objects.filter(item=order.inventory_item)
+        if order.supplier_id:
+            price_history = price_history.filter(supplier=order.supplier)
+        price_history = price_history.select_related('supplier')[:12]
+    history_values = [str(row.unit_price) for row in price_history]
+    conclusion_result_labels = {
+        'approved': '价格合理',
+        'exception': '价格异常',
+        'pending': '待分析',
+    }
+    conclusion_risk_labels = {
+        'high': '高风险',
+        'medium': '中风险',
+        'low': '低风险',
+        'unknown': '待判断',
+    }
+    conclusion = getattr(order, 'conclusion', None)
+    latest_analysis_event = SupplyChainEventLog.objects.filter(
+        object_type='price_review_order',
+        object_id=order.id,
+        event_type='price_review_analyzed',
+    ).first()
+    context = {
+        'page_title': '单价复核工作台',
+        'order': order,
+        'documents': order.documents.order_by('-create_time'),
+        'components': order.components.all(),
+        'price_history': price_history,
+        'historical_prices_csv': ','.join(history_values),
+        'market_reference': history_values[0] if history_values else '',
+        'target_price': (
+            order.inventory_item.standard_cost
+            if order.inventory_item_id else ''
+        ),
+        'conclusion_result_label': conclusion_result_labels.get(
+            getattr(conclusion, 'result', 'pending'),
+            getattr(conclusion, 'result', '待分析'),
+        ),
+        'conclusion_risk_label': conclusion_risk_labels.get(
+            getattr(conclusion, 'risk_level', 'unknown'),
+            getattr(conclusion, 'risk_level', '待判断'),
+        ),
+        'analysis_reference_inputs': (
+            latest_analysis_event.payload.get('reference_inputs', {})
+            if latest_analysis_event else {}
+        ),
+        'events': _get_object_events('price_review_order', order.id),
+        'source_url': reverse('inventory:purchase_order_detail', args=[order.purchase_order_id]) if order.purchase_order_id else '',
+    }
+    return render(request, 'supply_chain/price_review_detail.html', context)
+
+
+@login_required
 def price_review_analyze(request, pk):
     order = get_object_or_404(PriceReviewOrder.objects.select_related('inventory_item', 'supplier'), pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:price_review_list')
+        return redirect('supply_chain:price_review_detail', pk=pk)
 
     form = PriceReviewAnalyzeForm(request.POST)
     if not form.is_valid():
         messages.error(request, '单价复核参数无效')
-        return redirect('supply_chain:price_review_list')
+        return redirect('supply_chain:price_review_detail', pk=pk)
 
     parsed_payload = {
         key: form.cleaned_data.get(key)
@@ -1012,7 +1203,7 @@ def price_review_analyze(request, pk):
     components = normalize_price_components(parsed_payload)
     if not components:
         messages.error(request, '缺少可用的成本拆解数据，请先解析规格书或填写成本项')
-        return redirect('supply_chain:price_review_list')
+        return redirect('supply_chain:price_review_detail', pk=pk)
     reference_map = {
         '原材料': order.inventory_item.latest_cost or order.inventory_item.average_cost or order.inventory_item.standard_cost,
     } if order.inventory_item_id else {}
@@ -1083,12 +1274,20 @@ def price_review_analyze(request, pk):
             },
         )
 
+    reference_inputs = {
+        'historical_prices': [str(value) for value in history],
+        'market_price': str(market_price),
+        'target_price': str(target_price),
+    }
     log_supply_chain_event(
         event_type='price_review_analyzed',
         title=f'单价复核单 {order.code} 已完成分析',
         object_type='price_review_order',
         object_id=order.id,
-        payload=conclusion_payload,
+        payload={
+            **conclusion_payload,
+            'reference_inputs': reference_inputs,
+        },
         operator=request.user,
     )
     if order.created_by_id:
@@ -1098,24 +1297,24 @@ def price_review_analyze(request, pk):
             user_ids=[order.created_by_id],
             related_object_type='price_review_order',
             related_object_id=order.id,
-            action_url=reverse('supply_chain:price_review_list'),
+            action_url=reverse('supply_chain:price_review_detail', args=[order.id]),
             sender=request.user,
             priority=3 if conclusion_payload['result'] == 'exception' else 2,
         )
     messages.success(request, '单价复核分析完成')
-    return redirect('supply_chain:price_review_list')
+    return redirect('supply_chain:price_review_detail', pk=order.id)
 
 
 @login_required
 def price_review_parse_document(request, pk):
     order = get_object_or_404(PriceReviewOrder, pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:price_review_list')
+        return redirect('supply_chain:price_review_detail', pk=pk)
 
     form = PriceReviewDocumentForm(request.POST, request.FILES)
     if not form.is_valid():
         messages.error(request, '规格书解析参数无效')
-        return redirect('supply_chain:price_review_list')
+        return redirect('supply_chain:price_review_detail', pk=pk)
 
     document_file = form.cleaned_data.get('document_file')
     raw_text = form.cleaned_data.get('raw_text', '')
@@ -1154,7 +1353,7 @@ def price_review_parse_document(request, pk):
         operator=request.user,
     )
     messages.success(request, '规格书解析完成，可直接发起单价分析')
-    return redirect('supply_chain:price_review_list')
+    return redirect('supply_chain:price_review_detail', pk=order.id)
 
 
 @login_required
@@ -1213,18 +1412,41 @@ def sample_create(request):
 
 
 @login_required
+def sample_detail(request, pk):
+    sample_request = get_object_or_404(
+        SampleRequest.objects.select_related(
+            'supplier', 'engineer', 'requested_by',
+        ).prefetch_related('receipts', 'pickup_records'),
+        pk=pk,
+    )
+    latest_receipt = sample_request.receipts.order_by('-received_at').first()
+    context = {
+        'page_title': '打样业务工作台',
+        'sample_request': sample_request,
+        'latest_receipt': latest_receipt,
+        'pickup_overdue': bool(
+            latest_receipt
+            and sample_request.status == SampleRequest.STATUS_PICKUP_PENDING
+            and is_pickup_overdue(latest_receipt.received_at)
+        ),
+        'events': _get_object_events('sample_request', sample_request.id),
+    }
+    return render(request, 'supply_chain/sample_detail.html', context)
+
+
+@login_required
 def sample_receive(request, pk):
     sample_request = get_object_or_404(SampleRequest, pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:sample_list')
+        return redirect('supply_chain:sample_detail', pk=pk)
 
     form = SampleReceiptForm(request.POST, request.FILES)
     if not form.is_valid():
         messages.error(request, '到货信息无效')
-        return redirect('supply_chain:sample_list')
+        return redirect('supply_chain:sample_detail', pk=pk)
     if sample_request.status not in {SampleRequest.STATUS_DRAFT, SampleRequest.STATUS_ORDERED}:
         messages.error(request, '当前打样单状态不允许重复登记到货')
-        return redirect('supply_chain:sample_list')
+        return redirect('supply_chain:sample_detail', pk=pk)
 
     received_at = timezone.now()
     payload = build_receipt_payload(
@@ -1240,7 +1462,7 @@ def sample_receive(request, pk):
         sample_request = SampleRequest.objects.select_for_update().get(pk=pk)
         if sample_request.status not in {SampleRequest.STATUS_DRAFT, SampleRequest.STATUS_ORDERED}:
             messages.error(request, '打样单状态已变化，请刷新页面后重试')
-            return redirect('supply_chain:sample_list')
+            return redirect('supply_chain:sample_detail', pk=pk)
         if photo_file:
             photo_path = default_storage.save(
                 f'supply_chain/sample_receipts/{timezone.now():%Y/%m}/{photo_file.name}',
@@ -1272,32 +1494,32 @@ def sample_receive(request, pk):
         user_ids=notify_ids,
         related_object_type='sample_request',
         related_object_id=sample_request.id,
-        action_url=reverse('supply_chain:sample_list'),
+        action_url=reverse('supply_chain:sample_detail', args=[sample_request.id]),
         sender=request.user,
         priority=3,
     )
     messages.success(request, '样品到货已登记')
-    return redirect('supply_chain:sample_list')
+    return redirect('supply_chain:sample_detail', pk=sample_request.id)
 
 
 @login_required
 def sample_pickup(request, pk):
     sample_request = get_object_or_404(SampleRequest, pk=pk)
     if request.method != 'POST':
-        return redirect('supply_chain:sample_list')
+        return redirect('supply_chain:sample_detail', pk=pk)
 
     form = SamplePickupForm(request.POST)
     if not form.is_valid():
         messages.error(request, '领样信息无效')
-        return redirect('supply_chain:sample_list')
+        return redirect('supply_chain:sample_detail', pk=pk)
     if sample_request.status != SampleRequest.STATUS_PICKUP_PENDING:
         messages.error(request, '当前打样单尚未进入待领样状态')
-        return redirect('supply_chain:sample_list')
+        return redirect('supply_chain:sample_detail', pk=pk)
 
     latest_receipt = sample_request.receipts.order_by('-received_at').first()
     if latest_receipt is None:
         messages.error(request, '尚未登记到货，不能确认领样')
-        return redirect('supply_chain:sample_list')
+        return redirect('supply_chain:sample_detail', pk=pk)
     picked_at = timezone.now()
     overdue = is_pickup_overdue(
         received_at=latest_receipt.received_at if latest_receipt else None,
@@ -1307,11 +1529,11 @@ def sample_pickup(request, pk):
         sample_request = SampleRequest.objects.select_for_update().get(pk=pk)
         if sample_request.status != SampleRequest.STATUS_PICKUP_PENDING:
             messages.error(request, '打样单状态已变化，请刷新页面后重试')
-            return redirect('supply_chain:sample_list')
+            return redirect('supply_chain:sample_detail', pk=pk)
         latest_receipt = sample_request.receipts.order_by('-received_at').first()
         if latest_receipt is None:
             messages.error(request, '尚未登记到货，不能确认领样')
-            return redirect('supply_chain:sample_list')
+            return redirect('supply_chain:sample_detail', pk=pk)
         picked_at = timezone.now()
         overdue = is_pickup_overdue(
             received_at=latest_receipt.received_at,
@@ -1336,30 +1558,35 @@ def sample_pickup(request, pk):
         operator=request.user,
     )
     messages.success(request, '领样已确认')
-    return redirect('supply_chain:sample_list')
+    return redirect('supply_chain:sample_detail', pk=sample_request.id)
 
 
 dashboard.permission_required = 'user.view_supply_chain_dashboard'
 inventory_analysis.permission_required = 'user.view_supply_chain_inventory_analysis'
 forecast_list.permission_required = 'user.view_supply_chain_forecast'
 forecast_create.permission_required = 'user.add_supply_chain_forecast'
+forecast_detail.permission_required = 'user.view_supply_chain_forecast'
 forecast_run.permission_required = 'user.add_supply_chain_forecast'
 forecast_review.permission_required = 'user.approve_supply_chain_forecast'
 outsource_list.permission_required = 'user.view_supply_chain_outsource'
 outsource_create.permission_required = 'user.add_supply_chain_outsource'
+outsource_detail.permission_required = 'user.view_supply_chain_outsource'
 outsource_check.permission_required = 'user.change_supply_chain_outsource'
 outsource_status_update.permission_required = 'user.change_supply_chain_outsource'
 pr_review_list.permission_required = 'user.view_supply_chain_pr_review'
 pr_review_create.permission_required = 'user.add_supply_chain_pr_review'
+pr_review_detail.permission_required = 'user.view_supply_chain_pr_review'
 pr_review_evaluate.permission_required = 'user.approve_supply_chain_pr_review'
 pr_review_approve.permission_required = 'user.approve_supply_chain_pr_review'
 pr_review_batch_approve.permission_required = 'user.approve_supply_chain_pr_review'
 price_review_list.permission_required = 'user.view_supply_chain_price_review'
 price_review_create.permission_required = 'user.add_supply_chain_price_review'
+price_review_detail.permission_required = 'user.view_supply_chain_price_review'
 price_review_parse_document.permission_required = 'user.change_supply_chain_price_review'
 price_review_analyze.permission_required = 'user.approve_supply_chain_price_review'
 sample_list.permission_required = 'user.view_supply_chain_sample'
 sample_create.permission_required = 'user.add_supply_chain_sample'
+sample_detail.permission_required = 'user.view_supply_chain_sample'
 sample_receive.permission_required = 'user.change_supply_chain_sample'
 sample_pickup.permission_required = 'user.change_supply_chain_sample'
 
@@ -1374,20 +1601,20 @@ def sample_remind(request, pk):
     """Send overdue pickup reminder for a sample request."""
     sample_request = get_object_or_404(SampleRequest.objects.prefetch_related("receipts"), pk=pk)
     if request.method != "POST":
-        return redirect("supply_chain:sample_list")
+        return redirect("supply_chain:sample_detail", pk=pk)
     if sample_request.status != SampleRequest.STATUS_PICKUP_PENDING:
         messages.error(request, "当前打样单不在待领样状态，无法发送提醒")
-        return redirect("supply_chain:sample_list")
+        return redirect("supply_chain:sample_detail", pk=pk)
 
     latest_receipt = sample_request.receipts.order_by("-received_at").first()
     if latest_receipt is None:
         messages.error(request, "该打样单尚未登记到货")
-        return redirect("supply_chain:sample_list")
+        return redirect("supply_chain:sample_detail", pk=pk)
 
     from .services.sample_service import build_reminder_message, is_pickup_overdue
     if not is_pickup_overdue(latest_receipt.received_at):
         messages.warning(request, "尚未超期，可稍后再次提醒")
-        return redirect("supply_chain:sample_list")
+        return redirect("supply_chain:sample_detail", pk=pk)
 
     new_count = (latest_receipt.reminder_count or 0) + 1
     reminder = build_reminder_message(sample_request, latest_receipt, latest_receipt.reminder_count)
@@ -1405,7 +1632,7 @@ def sample_remind(request, pk):
             user_ids=notify_ids,
             related_object_type="sample_request",
             related_object_id=sample_request.id,
-            action_url=reverse("supply_chain:sample_list"),
+            action_url=reverse("supply_chain:sample_detail", args=[sample_request.id]),
             sender=request.user,
             priority=2,
         )
@@ -1419,7 +1646,7 @@ def sample_remind(request, pk):
         operator=request.user,
     )
     messages.success(request, f"已发送第 {new_count} 次领样提醒到工程师")
-    return redirect("supply_chain:sample_list")
+    return redirect("supply_chain:sample_detail", pk=sample_request.id)
 
 
 @login_required

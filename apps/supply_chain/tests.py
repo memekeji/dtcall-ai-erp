@@ -493,6 +493,7 @@ class SupplyChainViewTests(TestCase):
         })
 
         self.assertEqual(run_response.status_code, 302)
+        self.assertEqual(run_response.url, reverse('supply_chain:forecast_detail', args=[plan.id]))
         plan.refresh_from_db()
         self.assertEqual(DemandForecastSnapshot.objects.filter(forecast_plan=plan).count(), 1)
         self.assertEqual(DemandForecastResult.objects.filter(forecast_plan=plan).count(), 1)
@@ -513,6 +514,7 @@ class SupplyChainViewTests(TestCase):
         issue_order = OutsourceIssueOrder.objects.get(production_plan=self.production_plan)
         check_response = self.client.post(reverse('supply_chain:outsource_check', args=[issue_order.id]))
         self.assertEqual(check_response.status_code, 302)
+        self.assertEqual(check_response.url, reverse('supply_chain:outsource_detail', args=[issue_order.id]))
 
         issue_order.refresh_from_db()
         self.assertEqual(issue_order.items.count(), 1)
@@ -531,6 +533,7 @@ class SupplyChainViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('supply_chain:pr_review_detail', args=[task.id]))
         task.refresh_from_db()
         self.assertEqual(task.recommended_action, 'manual_review')
         self.assertTrue(task.is_abnormal)
@@ -563,7 +566,9 @@ class SupplyChainViewTests(TestCase):
         self.assertFalse(task.is_abnormal)
 
     def test_can_analyze_price_review_order(self):
-        from apps.supply_chain.models import PriceReviewConclusion, PriceReviewOrder
+        from apps.supply_chain.models import (
+            PriceReviewConclusion, PriceReviewOrder, SupplyChainEventLog,
+        )
 
         order = PriceReviewOrder.objects.create(
             code='PRC-001',
@@ -586,9 +591,16 @@ class SupplyChainViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('supply_chain:price_review_detail', args=[order.id]))
         order.refresh_from_db()
         self.assertEqual(order.components.count(), 7)
         self.assertTrue(PriceReviewConclusion.objects.filter(review_order=order).exists())
+        event = SupplyChainEventLog.objects.filter(
+            event_type='price_review_analyzed', object_id=order.id,
+        ).latest('create_time')
+        self.assertEqual(event.payload['reference_inputs']['historical_prices'], ['11', '12'])
+        self.assertEqual(event.payload['reference_inputs']['market_price'], '11.5')
+        self.assertEqual(event.payload['reference_inputs']['target_price'], '12')
 
     def test_can_create_sample_request_and_complete_receipt_pickup(self):
         from apps.supply_chain.models import SamplePickupRecord, SampleReceipt, SampleRequest
@@ -612,11 +624,13 @@ class SupplyChainViewTests(TestCase):
             'location': '研发样品柜',
         })
         self.assertEqual(receipt_response.status_code, 302)
+        self.assertEqual(receipt_response.url, reverse('supply_chain:sample_detail', args=[sample_request.id]))
 
         pickup_response = self.client.post(reverse('supply_chain:sample_pickup', args=[sample_request.id]), {
             'note': '已领取测试',
         })
         self.assertEqual(pickup_response.status_code, 302)
+        self.assertEqual(pickup_response.url, reverse('supply_chain:sample_detail', args=[sample_request.id]))
 
         sample_request.refresh_from_db()
         self.assertEqual(sample_request.status, 'picked_up')
@@ -768,6 +782,7 @@ class SupplyChainViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('supply_chain:forecast_detail', args=[plan.id]))
         review.refresh_from_db()
         plan.refresh_from_db()
         self.assertEqual(review.status, 'approved')
@@ -799,6 +814,10 @@ class SupplyChainViewTests(TestCase):
         self.assertEqual(picking_response.status_code, 302)
         self.assertEqual(issued_response.status_code, 302)
         self.assertEqual(notified_response.status_code, 302)
+        detail_url = reverse('supply_chain:outsource_detail', args=[order.id])
+        self.assertEqual(picking_response.url, detail_url)
+        self.assertEqual(issued_response.url, detail_url)
+        self.assertEqual(notified_response.url, detail_url)
         order.refresh_from_db()
         self.assertEqual(order.status, OutsourceIssueOrder.STATUS_NOTIFIED)
         self.assertGreaterEqual(order.status_logs.count(), 3)
@@ -820,6 +839,7 @@ class SupplyChainViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('supply_chain:pr_review_detail', args=[task.id]))
         task.refresh_from_db()
         self.assertEqual(task.status, PRReviewTask.STATUS_DONE)
         self.assertEqual(task.reviewer, self.user)
@@ -881,6 +901,7 @@ class SupplyChainViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('supply_chain:price_review_detail', args=[order.id]))
         document = PriceReviewDocument.objects.get(review_order=order)
         self.assertIn('原材料成本', document.raw_text)
         self.assertEqual(document.parsed_payload['material_cost'], '8.2000')
@@ -917,6 +938,7 @@ class SupplyChainViewTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, reverse('supply_chain:price_review_detail', args=[order.id]))
         order.refresh_from_db()
         self.assertEqual(order.components.count(), 7)
         self.assertTrue(PriceReviewConclusion.objects.filter(review_order=order).exists())
@@ -941,6 +963,117 @@ class SupplyChainViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         order.refresh_from_db()
         self.assertEqual(order.status, OutsourceIssueOrder.STATUS_DRAFT)
+
+    def test_supply_chain_detail_workbenches_render(self):
+        from apps.supply_chain.models import (
+            DemandForecastPlan, OutsourceIssueItem, OutsourceIssueOrder,
+            OutsourceIssueStatusLog, PRReviewEvidence, PRReviewTask, PriceReviewOrder,
+            SampleRequest,
+        )
+
+        forecast = DemandForecastPlan.objects.create(
+            name='详情预测', code='DFP-DETAIL-001', product=self.product,
+            period_start=date(2026, 7, 1), period_end=date(2026, 7, 31),
+            created_by=self.user,
+        )
+        outsource = OutsourceIssueOrder.objects.create(
+            code='OIO-DETAIL-001', product=self.product, supplier=self.supplier,
+            production_plan=self.production_plan, quantity=Decimal('10'),
+            created_by=self.user,
+        )
+        OutsourceIssueItem.objects.create(
+            issue_order=outsource, material_code='MAT-SHORT', material_name='短缺物料',
+            required_quantity=Decimal('10'), available_quantity=Decimal('3'),
+            status=OutsourceIssueItem.STATUS_SHORTAGE,
+        )
+        OutsourceIssueItem.objects.create(
+            issue_order=outsource, material_code='MAT-READY', material_name='齐套物料',
+            required_quantity=Decimal('10'), available_quantity=Decimal('10'),
+            status=OutsourceIssueItem.STATUS_READY,
+        )
+        OutsourceIssueStatusLog.objects.create(
+            issue_order=outsource, to_status=OutsourceIssueOrder.STATUS_SHORTAGE,
+            message='自动校验', operator=self.user,
+        )
+        pr_task = PRReviewTask.objects.create(
+            code='PRR-DETAIL-001', title='详情PR审核', created_by=self.user,
+            recommended_action='manual_review',
+        )
+        PRReviewEvidence.objects.create(
+            review_task=pr_task, label='建议动作', value='manual_review',
+        )
+        price_review = PriceReviewOrder.objects.create(
+            code='PRC-DETAIL-001', inventory_item=self.inventory_item,
+            supplier=self.supplier, quoted_price=Decimal('12.5000'),
+            created_by=self.user,
+        )
+        sample = SampleRequest.objects.create(
+            code='SMP-DETAIL-001', material_name='详情样品', engineer=self.user,
+            requested_by=self.user, required_date=date(2026, 7, 20),
+        )
+
+        routes = [
+            ('supply_chain:forecast_detail', forecast.id, '预测业务工作台'),
+            ('supply_chain:outsource_detail', outsource.id, '委外发料工作台'),
+            ('supply_chain:pr_review_detail', pr_task.id, 'PR审核工作台'),
+            ('supply_chain:price_review_detail', price_review.id, '单价复核工作台'),
+            ('supply_chain:sample_detail', sample.id, '打样业务工作台'),
+        ]
+        for route_name, object_id, heading in routes:
+            response = self.client.get(reverse(route_name, args=[object_id]))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, heading)
+
+        outsource_response = self.client.get(reverse('supply_chain:outsource_detail', args=[outsource.id]))
+        self.assertEqual(outsource_response.context['shortage_count'], 1)
+        self.assertContains(outsource_response, '缺料 · 自动校验')
+        self.assertContains(outsource_response, 'sc-detail-table-scroll')
+        pr_response = self.client.get(reverse('supply_chain:pr_review_detail', args=[pr_task.id]))
+        self.assertEqual(pr_response.context['recommended_action_label'], '人工复核')
+        self.assertNotContains(pr_response, 'manual_review')
+
+    def test_lists_use_detail_actions_instead_of_large_inline_forms(self):
+        from apps.supply_chain.models import (
+            DemandForecastPlan, OutsourceIssueOrder, PRReviewTask,
+            PriceReviewOrder, SampleRequest,
+        )
+
+        DemandForecastPlan.objects.create(
+            name='列表预测', code='DFP-LIST-001', product=self.product,
+            period_start=date(2026, 7, 1), period_end=date(2026, 7, 31),
+            created_by=self.user,
+        )
+        OutsourceIssueOrder.objects.create(
+            code='OIO-LIST-001', product=self.product, supplier=self.supplier,
+            production_plan=self.production_plan, quantity=Decimal('10'),
+            created_by=self.user,
+        )
+        PRReviewTask.objects.create(
+            code='PRR-LIST-001', title='列表PR审核', created_by=self.user,
+        )
+        PriceReviewOrder.objects.create(
+            code='PRC-LIST-001', inventory_item=self.inventory_item,
+            supplier=self.supplier, quoted_price=Decimal('12.5000'),
+            created_by=self.user,
+        )
+        SampleRequest.objects.create(
+            code='SMP-LIST-001', material_name='列表样品', engineer=self.user,
+            requested_by=self.user, required_date=date(2026, 7, 20),
+        )
+
+        pages = [
+            ('supply_chain:forecast_list', '按实时数据生成预测'),
+            ('supply_chain:outsource_list', '确认发料'),
+            ('supply_chain:pr_review_list', '规则识别'),
+            ('supply_chain:price_review_list', 'AI生成复核报告'),
+            ('supply_chain:sample_list', '登记到货'),
+        ]
+
+        for route_name, removed_action in pages:
+            response = self.client.get(reverse(route_name))
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, '查看处理')
+            self.assertNotContains(response, removed_action)
 
 
 class SupplyChainPermissionTests(TestCase):
