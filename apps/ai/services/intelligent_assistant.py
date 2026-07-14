@@ -885,18 +885,62 @@ class IntelligentDataAssistant:
                     return self._handle_statistics(parsed_intent)
                 return self._handle_query(parsed_intent)
             elif operation in {'CREATE', 'UPDATE', 'DELETE'}:
-                return {
-                    "success": False,
-                    "message": "数据新增、修改、删除需要在对应业务页面核对并确认后执行",
-                    "requires_confirmation": True,
-                    "operation": operation
-                }
+                return self._build_confirmation_plan(parsed_intent, user_message)
             else:
                 return self._handle_conversation(user_message)
 
         except Exception as e:
             logger.error(f"处理消息失败: {e}")
             return {"success": False, "message": "处理请求时发生错误，请稍后重试"}
+
+    def _build_confirmation_plan(self, parsed_intent, user_message):
+        from apps.ai.services.confirmation_service import confirmation_service
+
+        target = parsed_intent.get('target') or ''
+        operation = str(parsed_intent.get('operation') or '').lower()
+        resource_aliases = {
+            '客户': 'customer',
+            '联系人': 'contact',
+            '跟进记录': 'followup',
+            '订单': 'order',
+            '合同': 'contract',
+            '供应商': 'supplier',
+            '项目': 'project',
+            '任务': 'task',
+            '文档': 'document',
+            '审批': 'approval',
+        }
+        resource = resource_aliases.get(target, target)
+        entities = dict(parsed_intent.get('entities') or {})
+        entities.update(parsed_intent.get('data') or {})
+        if parsed_intent.get('object_ids'):
+            entities['object_ids'] = parsed_intent['object_ids']
+        intent_result = {
+            'action': operation,
+            'data_type': resource,
+            'entities': entities,
+            'original_query': user_message,
+            'requires_confirmation': True,
+            'message': '请确认本次操作，确认后系统将直接执行并保留单条回退记录。',
+        }
+        payload = confirmation_service.build_confirmation_payload(
+            intent_result,
+            user=self.user,
+        )
+        if not payload:
+            return {
+                'success': False,
+                'message': f'无法为{target or resource}生成可执行操作，请补充目标和字段。',
+                'requires_confirmation': True,
+                'operation': operation.upper(),
+            }
+        return {
+            'success': True,
+            'message': payload['confirmation']['message'],
+            'requires_confirmation': True,
+            'operation': operation.upper(),
+            **payload,
+        }
 
     def _ai_parse_intent(self, user_message):
         """使用 AI 解析意图 - 增强版"""

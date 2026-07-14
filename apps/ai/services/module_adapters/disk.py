@@ -567,21 +567,6 @@ class DiskModuleAdapter(AIBaseModuleAdapter):
             fields.add('shared_departments')
         return fields
 
-    def _build_permission_change_set(self, target, before_snapshot, action, relation_snapshot):
-        after_snapshot = self._permission_snapshot(target)
-        return {
-            'app_label': 'disk',
-            'model_name': 'DiskPermission',
-            'object_pk': str(getattr(target, 'id', action.object_ids[0])),
-            'change_type': 'update',
-            'before_snapshot': before_snapshot,
-            'after_snapshot': after_snapshot,
-            'changed_fields': sorted(set(action.changes.keys()) | self._permission_relation_change_fields(action.changes)),
-            'rollback_metadata': {
-                'relation_snapshots': relation_snapshot,
-            },
-        }
-
     def _create_share(self, action, user, share_type):
         from apps.disk.models import DiskShare
 

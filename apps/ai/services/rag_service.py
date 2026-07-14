@@ -1,6 +1,5 @@
 from apps.ai.models import AIKnowledgeItem, AIKnowledgeVector
 from apps.ai.utils.ai_client import AIClient
-from apps.ai.utils.ai_config_manager import get_ai_config_manager
 import logging
 import re
 from typing import List
@@ -12,12 +11,7 @@ class EnhancedRAGService:
     """增强版RAG服务，支持混合检索、查询改写和重排序"""
 
     def __init__(self):
-        config = get_ai_config_manager().get_recommended_config()
-        if config:
-            self.ai_client = AIClient.from_config(config)
-        else:
-            self.ai_client = None
-            logger.warning("没有有效的AI配置，RAG服务将使用降级模式")
+        self.ai_client = AIClient()
         self.max_relevant_items = 10  # 最多返回的相关知识条目数量
         self.similarity_threshold = 0.3  # 相似度阈值
         self.hybrid_weight = 0.6  # 语义检索权重，关键词检索权重为 1-hybrid_weight
@@ -392,12 +386,7 @@ class RAGService:
     """RAG服务类，实现完整的RAG流程"""
 
     def __init__(self):
-        config = get_ai_config_manager().get_recommended_config()
-        if config:
-            self.ai_client = AIClient.from_config(config)
-        else:
-            self.ai_client = None
-            logger.warning("没有有效的AI配置，RAG服务将使用降级模式")
+        self.ai_client = AIClient()
         self.max_relevant_items = 5  # 最多返回的相关知识条目数量
         self.similarity_threshold = 0.5  # 相似度阈值，低于此值的条目将被过滤
         self.enhanced_service = EnhancedRAGService()

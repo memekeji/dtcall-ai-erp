@@ -291,12 +291,10 @@ document.addEventListener('DOMContentLoaded', function() {
             return matchedRule ? matchedRule.icon : defaultIcon;
         };
 
-        const directPng = title ? buildUrl(`${title}.png`) : '';
-        const directSvg = title ? buildUrl(`${title}.svg`) : '';
         const fallbackIcon = buildUrl(resolveFallbackIcon(title));
         const defaultIconUrl = buildUrl(defaultIcon);
 
-        return [...new Set([directPng, directSvg, fallbackIcon, defaultIconUrl].filter(Boolean))];
+        return [...new Set([fallbackIcon, defaultIconUrl].filter(Boolean))];
     }
 
     function getQuickMenuIconSrc(menu) {

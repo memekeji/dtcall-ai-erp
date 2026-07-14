@@ -1173,11 +1173,6 @@ class WorkCompletionReportForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['created_by'].required = False
-        self.fields['created_by'].widget = forms.HiddenInput()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['created_by'].required = False
         self.fields['status'].required = False
         self.fields['created_by'].widget = forms.HiddenInput()
         self.fields['status'].widget = forms.HiddenInput()

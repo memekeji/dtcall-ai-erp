@@ -1997,11 +1997,9 @@
 
             document.querySelectorAll('.lazy-icon').forEach(img => {
                 const title = (img.closest('a')?.getAttribute('title') || img.closest('a')?.textContent || '').trim();
-                const rawSrc = img.getAttribute('data-src');
-                const directSvg = title ? buildIconUrl(`${title}.svg`) : '';
                 const fallbackIcon = buildIconUrl(resolveFallbackIcon(title));
                 const defaultIconUrl = buildIconUrl(defaultIcon);
-                const candidates = [...new Set([rawSrc, directSvg, fallbackIcon, defaultIconUrl].filter(Boolean))];
+                const candidates = [...new Set([fallbackIcon, defaultIconUrl].filter(Boolean))];
 
                 img.dataset.iconIndex = '0';
                 img.dataset.iconCandidates = JSON.stringify(candidates);

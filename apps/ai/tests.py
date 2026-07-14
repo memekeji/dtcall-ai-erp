@@ -1,4 +1,6 @@
+import ast
 import json
+import re
 from datetime import date, timedelta
 from dataclasses import asdict
 from decimal import Decimal
@@ -43,6 +45,173 @@ class AIModelRegistryTests(SimpleTestCase):
             expected_models.issubset(registered_models),
             f"Missing AI operation models: {sorted(expected_models - registered_models)}",
         )
+
+
+class AIServiceSourceQualityTests(SimpleTestCase):
+    def test_project_classes_do_not_define_duplicate_methods(self):
+        apps_root = Path(__file__).parents[1]
+
+        for source_path in apps_root.rglob('*.py'):
+            tree = ast.parse(source_path.read_text(encoding='utf-8-sig'))
+            for class_node in (
+                node for node in ast.walk(tree) if isinstance(node, ast.ClassDef)
+            ):
+                method_names = [
+                    node.name
+                    for node in class_node.body
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                ]
+                duplicates = sorted({name for name in method_names if method_names.count(name) > 1})
+
+                with self.subTest(source_path=source_path, class_name=class_node.name):
+                    self.assertEqual(duplicates, [])
+
+    def test_django_settings_do_not_define_ai_model_credentials(self):
+        settings_source = (Path(__file__).parents[2] / 'dtcall' / 'settings.py').read_text(encoding='utf-8')
+
+        self.assertNotIn('OPENAI_API_KEY', settings_source)
+        self.assertNotIn('OPENAI_BASE_URL', settings_source)
+
+    def test_menu_icon_loader_does_not_request_title_based_missing_files(self):
+        home_source = (Path(__file__).parents[2] / 'static' / 'js' / 'home.js').read_text(encoding='utf-8')
+        template_source = (Path(__file__).parents[2] / 'templates' / 'home' / 'base.html').read_text(encoding='utf-8')
+
+        self.assertIn('[fallbackIcon, defaultIconUrl]', home_source)
+        self.assertNotIn('directPng, directSvg, fallbackIcon', home_source)
+        self.assertIn('[fallbackIcon, defaultIconUrl]', template_source)
+        self.assertNotIn('const rawSrc = img.getAttribute', template_source)
+
+        icon_root = Path(__file__).parents[2] / 'static' / 'img' / 'icon'
+        mapped_icons = set(re.findall(r"icon:\s*'([^']+)'", template_source))
+        self.assertTrue(mapped_icons)
+        self.assertEqual(
+            sorted(icon for icon in mapped_icons if not (icon_root / icon).is_file()),
+            [],
+        )
+
+    def test_font_awesome_consumers_load_existing_font_override(self):
+        project_root = Path(__file__).parents[2]
+        override_source = (project_root / 'static' / 'css' / 'dtcall-ui.css').read_text(encoding='utf-8')
+        consumers = [
+            project_root / 'templates' / 'home' / 'dashboard.html',
+            project_root / 'templates' / 'home' / 'business_dashboard.html',
+            project_root / 'templates' / 'home' / 'finance_dashboard.html',
+            project_root / 'templates' / 'home' / 'production_dashboard.html',
+            project_root / 'templates' / 'position' / 'new_list.html',
+            project_root / 'templates' / 'position' / 'new_form.html',
+        ]
+
+        self.assertIn('../font/font-awesome/fontawesome-webfont.woff2', override_source)
+        for template_path in consumers:
+            with self.subTest(template=template_path):
+                source = template_path.read_text(encoding='utf-8')
+                self.assertIn('css/font-awesome.min.css', source)
+                self.assertIn('css/dtcall-ui.css', source)
+
+
+class AILegacyWritePathCompatibilityTests(SimpleTestCase):
+    def test_legacy_data_assistant_returns_unified_confirmation_plan(self):
+        from apps.ai.services.intelligent_assistant import IntelligentDataAssistant
+
+        assistant = IntelligentDataAssistant(user=SimpleNamespace(id=7, is_authenticated=True))
+        parsed_intent = {
+            'operation': 'CREATE',
+            'target': '客户',
+            'data': {'name': '统一入口客户'},
+        }
+
+        with patch.object(assistant, '_ai_parse_intent', return_value=parsed_intent):
+            result = assistant.process('新增客户统一入口客户')
+
+        self.assertTrue(result['requires_confirmation'])
+        self.assertEqual(result['action_plan']['resource'], 'customer')
+        self.assertEqual(result['action_plan']['operation'], 'create')
+        self.assertEqual(result['action_plan']['changes']['name'], '统一入口客户')
+        self.assertNotIn('对应业务页面', result['message'])
+
+    def test_legacy_data_assistant_updates_and_deletes_through_confirmation_plan(self):
+        from apps.ai.services.intelligent_assistant import IntelligentDataAssistant
+
+        assistant = IntelligentDataAssistant(user=SimpleNamespace(id=7, is_authenticated=True))
+        cases = [
+            ({'operation': 'UPDATE', 'target': '客户', 'object_ids': [12], 'data': {'name': '新名称'}}, 'update'),
+            ({'operation': 'DELETE', 'target': '客户', 'object_ids': [12], 'data': {}}, 'delete'),
+        ]
+
+        for parsed_intent, operation in cases:
+            with self.subTest(operation=operation), patch.object(
+                assistant,
+                '_ai_parse_intent',
+                return_value=parsed_intent,
+            ):
+                result = assistant.process('执行操作')
+
+            self.assertTrue(result['requires_confirmation'])
+            self.assertEqual(result['action_plan']['resource'], 'customer')
+            self.assertEqual(result['action_plan']['operation'], operation)
+
+
+class AIRollbackUnsupportedChangeTests(SimpleTestCase):
+    def test_unsupported_rollback_change_returns_structured_error(self):
+        from apps.ai.services.rollback_service import rollback_service
+
+        change_set = SimpleNamespace(
+            app_label='customer',
+            model_name='Customer',
+            object_pk='12',
+            change_type='unsupported',
+            before_snapshot={},
+            after_snapshot={},
+            rollback_metadata={},
+        )
+        model = SimpleNamespace()
+
+        with patch('apps.ai.services.rollback_service.apps.get_model', return_value=model):
+            result = rollback_service._apply_change_set(change_set)
+
+        self.assertFalse(result['success'])
+        self.assertEqual(result['object_pk'], '12')
+        self.assertEqual(result['error_code'], 'unsupported_change_type')
+
+    def test_unsupported_change_does_not_mark_operation_as_rolled_back(self):
+        from apps.ai.services.rollback_service import rollback_service
+
+        user = SimpleNamespace(id=7, is_authenticated=True)
+        change_set = SimpleNamespace(
+            sequence=1,
+            app_label='customer',
+            model_name='Customer',
+            object_pk='12',
+            change_type='unsupported',
+            before_snapshot={},
+            after_snapshot={},
+            rollback_metadata={},
+        )
+        operation = SimpleNamespace(
+            id=901,
+            status='executed',
+            rollback_status='',
+            change_sets=SimpleNamespace(all=lambda: [change_set]),
+            save=MagicMock(),
+        )
+        rollback_record = SimpleNamespace(
+            id=902,
+            status='pending',
+            error_message='',
+            completed_at=None,
+            save=MagicMock(),
+        )
+
+        with patch('apps.ai.services.rollback_service.AIOperation.objects.get', return_value=operation), \
+                patch('apps.ai.services.rollback_service.AIOperationRollback.objects.create', return_value=rollback_record), \
+                patch('apps.ai.services.rollback_service.apps.get_model', return_value=SimpleNamespace()), \
+                patch('apps.ai.services.rollback_service.transaction.atomic'):
+            result = rollback_service.rollback_operation(operation_id=901, user=user)
+
+        self.assertFalse(result['success'])
+        self.assertEqual(operation.status, 'executed')
+        operation.save.assert_not_called()
+        self.assertEqual(rollback_record.status, 'failed')
 
 
 class AIExecutionContractTests(SimpleTestCase):
@@ -141,6 +310,56 @@ class AIPermissionGuardTests(SimpleTestCase):
 
 
 class AIQueryServicePermissionMappingTests(SimpleTestCase):
+    def test_specialized_query_intents_inherit_exact_resource_permissions(self):
+        from apps.ai.services.query_service import QueryService
+
+        intent_permissions = {
+            'contract_count_effective': 'contract.view_contract',
+            'contract_count_expired': 'contract.view_contract',
+            'contract_total': 'contract.view_contract',
+            'customer_count_deal': 'customer.view_customer',
+            'customer_count_potential': 'customer.view_customer',
+            'customer_deal_last_month': 'customer.view_customer',
+            'customer_deal_this_month': 'customer.view_customer',
+            'customer_detail': 'customer.view_customer',
+            'customer_list_deal': 'customer.view_customer',
+            'customer_list_potential': 'customer.view_customer',
+            'employee_count_active': 'user.view_employeefile',
+            'employee_count_inactive': 'user.view_employeefile',
+            'invoice_count_issued': 'customer.view_customerinvoice',
+            'invoice_count_unissued': 'customer.view_customerinvoice',
+            'order_count_completed': 'customer.view_customerorder',
+            'order_count_in_progress': 'customer.view_customerorder',
+            'order_total': 'customer.view_customerorder',
+            'order_total_last_month': 'customer.view_customerorder',
+            'order_total_this_month': 'customer.view_customerorder',
+            'project_count_completed': 'project.view_project',
+            'project_count_in_progress': 'project.view_project',
+            'project_count_paused': 'project.view_project',
+            'project_list_completed': 'project.view_project',
+            'project_list_in_progress': 'project.view_project',
+            'project_progress': 'project.view_project',
+        }
+        service = QueryService()
+
+        for intent, expected_permission in intent_permissions.items():
+            with self.subTest(intent=intent):
+                allowed_user = SimpleNamespace(
+                    username='allowed-query-user',
+                    is_authenticated=True,
+                    is_superuser=False,
+                    has_perm=lambda permission, expected=expected_permission: permission == expected,
+                )
+                denied_user = SimpleNamespace(
+                    username='denied-query-user',
+                    is_authenticated=True,
+                    is_superuser=False,
+                    has_perm=lambda permission: False,
+                )
+
+                self.assertTrue(service.check_permission(allowed_user, intent))
+                self.assertFalse(service.check_permission(denied_user, intent))
+
     def test_ai_center_query_permissions_follow_menu_permissions(self):
         from apps.ai.services.query_service import QueryService
 
@@ -8753,6 +8972,33 @@ class AIActionGatewayProjectCoverageTests(SimpleTestCase):
 
 
 class AIConfiguredModelAdapterPermissionTests(SimpleTestCase):
+    def test_meeting_minutes_action_payload_constructs_real_model(self):
+        from apps.ai.services.confirmation_service import confirmation_service
+        from apps.ai.services.module_adapters.configured_model import ConfiguredModelModuleAdapter
+        from apps.personal.models import MeetingMinutes
+
+        user = SimpleNamespace(id=9, name='验证用户', username='verify')
+        request = confirmation_service.build_action_request({
+            'action': 'create',
+            'data_type': 'meeting_minutes',
+            'entities': {
+                'title': 'AI验证纪要',
+                'meeting_date': 'today',
+            },
+        }, user=user)
+        normalized = ConfiguredModelModuleAdapter('meeting_minutes')._normalize_payload(
+            request.changes,
+            user,
+            partial=False,
+        )
+
+        self.assertTrue(normalized['success'], normalized)
+        self.assertNotIn('host_id', normalized['payload'])
+        instance = MeetingMinutes(**normalized['payload'])
+        self.assertEqual(instance.host, '验证用户')
+        self.assertEqual(instance.recorder_id, 9)
+        self.assertEqual(instance.user_id, 9)
+
     def test_configured_adapter_accepts_configured_nonstandard_permission(self):
         from apps.ai.services.action_contracts import AIActionRequest
         from apps.ai.services.module_adapters.configured_model import ConfiguredModelModuleAdapter
@@ -11747,6 +11993,68 @@ class AIActionGatewayDiskDispatchTests(SimpleTestCase):
 
 
 class AIModelConfigCompatibilityTests(SimpleTestCase):
+    def test_ai_client_uses_database_chat_config_by_default(self):
+        from apps.ai.utils.ai_client import AIClient
+
+        runtime_config = {
+            'id': 21,
+            'provider': 'openai',
+            'api_key': 'database-key',
+            'api_base': 'https://proxy.example.com/v1',
+            'base_url': 'https://proxy.example.com/v1',
+            'model_name': 'gpt-5.5',
+            'chat': 'gpt-5.5',
+            'updated_at': '2026-07-14T12:00:00+08:00',
+        }
+
+        with patch(
+            'apps.ai.utils.ai_client.AIModelConfig.get_latest_chat_runtime_config',
+            return_value=runtime_config,
+        ), patch.object(AIClient, '_create_client', return_value=MagicMock()):
+            client = AIClient()
+
+        self.assertEqual(client.model_config, runtime_config)
+        self.assertEqual(client.provider, 'openai')
+
+    def test_database_managed_ai_client_refreshes_changed_chat_config(self):
+        from apps.ai.utils.ai_client import AIClient
+
+        initial_config = {
+            'id': 21,
+            'provider': 'openai',
+            'api_key': 'old-key',
+            'api_base': 'https://proxy.example.com/v1',
+            'model_name': 'gpt-4o-mini',
+            'chat': 'gpt-4o-mini',
+            'updated_at': '2026-07-14T12:00:00+08:00',
+        }
+        refreshed_config = {
+            **initial_config,
+            'api_key': 'new-key',
+            'model_name': 'gpt-5.5',
+            'chat': 'gpt-5.5',
+            'updated_at': '2026-07-14T12:05:00+08:00',
+        }
+        initial_client = MagicMock()
+        initial_client.chat_completion.return_value = '旧配置响应'
+        refreshed_client = MagicMock()
+        refreshed_client.chat_completion.return_value = '新配置响应'
+
+        with patch(
+            'apps.ai.utils.ai_client.AIModelConfig.get_latest_chat_runtime_config',
+            side_effect=[initial_config, refreshed_config],
+        ), patch.object(
+            AIClient,
+            '_create_client',
+            side_effect=[initial_client, refreshed_client],
+        ):
+            client = AIClient()
+            result = client.chat_completion([{'role': 'user', 'content': '测试'}])
+
+        self.assertEqual(result, '新配置响应')
+        initial_client.chat_completion.assert_not_called()
+        refreshed_client.chat_completion.assert_called_once()
+
     def test_model_config_form_normalizes_openai_compatible_root_url(self):
         from apps.ai.forms import AIModelConfigForm
 
@@ -11792,7 +12100,11 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
             is_active=True,
         )
 
-        client = AIClient(model_config_id=None)
+        with patch(
+            'apps.ai.utils.ai_client.AIModelConfig.get_latest_chat_runtime_config',
+            return_value=None,
+        ):
+            client = AIClient(model_config_id=None)
         client.model_config = config
         client.client = client._create_client()
 
@@ -11898,6 +12210,40 @@ class AIModelConfigCompatibilityTests(SimpleTestCase):
             result = AIIntentClassifier()._get_latest_chat_config()
 
         self.assertEqual(result, expected_config)
+
+
+class AIDatabaseManagedServiceTests(SimpleTestCase):
+    def test_rag_services_use_database_managed_clients(self):
+        from apps.ai.services.rag_service import EnhancedRAGService, RAGService
+
+        with patch('apps.ai.services.rag_service.AIClient', return_value=MagicMock()) as client_class:
+            EnhancedRAGService()
+            RAGService()
+
+        self.assertEqual(client_class.call_count, 3)
+        self.assertTrue(all(not item.args and not item.kwargs for item in client_class.call_args_list))
+
+    def test_vector_generation_service_uses_database_managed_client(self):
+        from apps.ai.services.vector_generation_service import VectorGenerationService
+
+        with patch(
+            'apps.ai.services.vector_generation_service.AIClient',
+            return_value=MagicMock(),
+        ) as client_class:
+            VectorGenerationService()
+
+        client_class.assert_called_once_with()
+
+    def test_vector_quality_service_uses_database_managed_client(self):
+        from apps.ai.services.vector_quality_service import VectorQualityService
+
+        with patch(
+            'apps.ai.services.vector_quality_service.AIClient',
+            return_value=MagicMock(),
+        ) as client_class:
+            VectorQualityService()
+
+        client_class.assert_called_once_with()
 
 
 class AIModelConfigValidateViewTests(SimpleTestCase):
@@ -13018,6 +13364,14 @@ class AIAnalysisServiceTests(SimpleTestCase):
 
 
 class AIAnalysisToolCallTests(SimpleTestCase):
+    def test_analysis_tool_uses_database_managed_ai_client(self):
+        from apps.ai.utils.analysis_tools import AIAnalysisTool
+
+        with patch('apps.ai.utils.analysis_tools.AIClient', return_value=MagicMock()) as client_class:
+            AIAnalysisTool()
+
+        client_class.assert_called_once_with()
+
     def test_call_ai_parses_json_response_from_client(self):
         from apps.ai.utils.analysis_tools import AIAnalysisTool
 

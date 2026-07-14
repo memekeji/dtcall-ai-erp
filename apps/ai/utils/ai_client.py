@@ -1302,6 +1302,7 @@ class AIClient:
     """AI模型客户端入口类"""
 
     def __init__(self, model_config_id=None, provider=None):
+        self._database_managed = model_config_id is None and provider is None
         if model_config_id:
             try:
                 self.model_config = AIModelConfig.objects.get(
@@ -1310,11 +1311,55 @@ class AIClient:
             except AIModelConfig.DoesNotExist:
                 logger.error(f"AI模型配置不存在或未启用: {model_config_id}")
                 raise AIClientError("AI模型配置不存在或未启用，请检查模型配置后重试") from None
+        elif self._database_managed:
+            loaded, runtime_config = self._load_database_runtime_config()
+            self.model_config = runtime_config if loaded else None
+            self.provider = (
+                runtime_config.get('provider') if isinstance(runtime_config, dict) else None
+            ) or 'openai'
         else:
             self.provider = provider or 'openai'
             self.model_config = None
 
         self.client = self._create_client()
+        self._runtime_config_signature = self._get_runtime_config_signature(self.model_config)
+
+    def _load_database_runtime_config(self):
+        try:
+            return True, AIModelConfig.get_latest_chat_runtime_config()
+        except Exception as exc:
+            logger.warning(f"无法从数据库加载AI模型配置: {exc}")
+            return False, None
+
+    def _get_runtime_config_signature(self, config):
+        if not isinstance(config, dict):
+            return None
+        return (
+            config.get('id'),
+            str(config.get('updated_at') or ''),
+            config.get('api_base') or config.get('base_url') or '',
+            config.get('model_name') or config.get('chat') or '',
+            config.get('api_key') or '',
+        )
+
+    def _refresh_database_client(self):
+        if not self._database_managed:
+            return
+
+        loaded, runtime_config = self._load_database_runtime_config()
+        if not loaded:
+            return
+
+        signature = self._get_runtime_config_signature(runtime_config)
+        if signature == self._runtime_config_signature:
+            return
+
+        self.model_config = runtime_config
+        self.provider = (
+            runtime_config.get('provider') if isinstance(runtime_config, dict) else None
+        ) or 'openai'
+        self.client = self._create_client()
+        self._runtime_config_signature = signature
 
     def _create_client(self):
         """创建 OpenAI 兼容客户端实例 — 全站统一。"""
@@ -1371,24 +1416,31 @@ class AIClient:
         client.model_config['model_name'] = model_name
 
     def chat_completion(self, messages, **kwargs):
+        self._refresh_database_client()
         return self.client.chat_completion(messages, **kwargs)
 
     def stream_chat_completion(self, messages, **kwargs):
+        self._refresh_database_client()
         return self.client.stream_chat_completion(messages, **kwargs)
 
     def text_completion(self, prompt, **kwargs):
+        self._refresh_database_client()
         return self.client.text_completion(prompt, **kwargs)
 
     def embedding(self, text, **kwargs):
+        self._refresh_database_client()
         return self.client.embedding(text, **kwargs)
 
     def summarize_text(self, text, max_length=500, **kwargs):
+        self._refresh_database_client()
         return self.client.summarize_text(text, max_length, **kwargs)
 
     def analyze_sentiment(self, text, **kwargs):
+        self._refresh_database_client()
         return self.client.analyze_sentiment(text, **kwargs)
 
     def generate_content(self, prompt, **kwargs):
+        self._refresh_database_client()
         return self.client.generate_content(prompt, **kwargs)
 
     def generate(self, prompt, **kwargs):

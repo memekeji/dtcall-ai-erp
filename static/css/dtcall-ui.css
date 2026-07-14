@@ -1,4 +1,13 @@
 /* DTCall unified enterprise UI layer */
+@font-face {
+    font-family: 'FontAwesome';
+    src: url('../font/font-awesome/fontawesome-webfont.woff2?v=4.7.0') format('woff2'),
+         url('../font/font-awesome/fontawesome-webfont.woff?v=4.7.0') format('woff'),
+         url('../font/font-awesome/fontawesome-webfont.ttf?v=4.7.0') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
 :root {
     --dt-bg: #f4f7fb;
     --dt-surface: #ffffff;

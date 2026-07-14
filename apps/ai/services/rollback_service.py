@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import logging
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,6 +12,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.ai.models import AIOperation, AIOperationChangeSet, AIOperationRollback
+
+logger = logging.getLogger(__name__)
 
 
 def inverse_change_type(change_type: str) -> str:
@@ -66,7 +69,10 @@ class AIOperationRollbackService:
                 plan = build_rollback_plan(self._get_change_sets(operation))
                 result_items = []
                 for change_set in plan:
-                    result_items.append(self._apply_change_set(change_set))
+                    step_result = self._apply_change_set(change_set)
+                    if isinstance(step_result, dict) and step_result.get('success') is False:
+                        raise ValueError(step_result.get('message') or '单条操作回退失败')
+                    result_items.append(step_result)
 
                 operation.status = 'rolled_back'
                 operation.rollback_status = 'completed'
@@ -131,7 +137,19 @@ class AIOperationRollbackService:
 
             return {'object_pk': change_set.object_pk, 'rolled_back': 'delete'}
 
-        raise NotImplementedError(f'Rollback for {change_set.change_type} is not implemented yet')
+        logger.error(
+            '单条操作回退不支持变更类型: app=%s model=%s object=%s change_type=%s',
+            change_set.app_label,
+            change_set.model_name,
+            change_set.object_pk,
+            change_set.change_type,
+        )
+        return {
+            'success': False,
+            'object_pk': change_set.object_pk,
+            'error_code': 'unsupported_change_type',
+            'message': f'不支持回退变更类型: {change_set.change_type}',
+        }
 
     def _restore_deleted_disk_object(self, model, change_set):
         metadata = change_set.rollback_metadata or {}

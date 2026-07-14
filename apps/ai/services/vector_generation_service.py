@@ -2,7 +2,6 @@ import numpy as np
 import logging
 from apps.ai.models import AIKnowledgeItem, AIKnowledgeVector
 from apps.ai.utils.ai_client import AIClient
-from apps.ai.utils.ai_config_manager import get_ai_config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -11,8 +10,7 @@ class VectorGenerationService:
     """向量生成服务类"""
 
     def __init__(self):
-        self.ai_client = AIClient.from_config(
-            get_ai_config_manager().get_recommended_config())
+        self.ai_client = AIClient()
 
     def generate_vector_for_knowledge_item(self, knowledge_item_id):
         """为单个知识条目生成向量"""

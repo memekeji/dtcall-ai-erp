@@ -1,7 +1,6 @@
 import numpy as np
 from apps.ai.models import AIKnowledgeItem, AIKnowledgeVector
 from apps.ai.utils.ai_client import AIClient
-from apps.ai.utils.ai_config_manager import get_ai_config_manager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,8 +10,7 @@ class VectorQualityService:
     """向量质量评估和优化服务"""
 
     def __init__(self):
-        self.ai_client = AIClient.from_config(
-            get_ai_config_manager().get_recommended_config())
+        self.ai_client = AIClient()
 
     def evaluate_vector_quality(self):
         """评估所有向量的质量"""

@@ -640,8 +640,6 @@ LOGGING = {
 
 # AI相关配置
 # 语音转文字服务配置
-OPENAI_API_KEY = ''  # 留空表示使用免费服务
-OPENAI_BASE_URL = 'https://api.openai.com/v1'
 BAIDU_API_KEY = ''  # 留空表示使用免费服务
 BAIDU_SECRET_KEY = ''  # 留空表示使用免费服务
 

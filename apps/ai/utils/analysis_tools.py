@@ -15,40 +15,10 @@ class AIAnalysisTool:
         初始化AI分析工具
         :param provider: AI提供商，默认为None（使用数据库中的激活配置）
         """
-        import sys
-        # 检查是否在迁移过程中，避免访问尚未创建的数据库表
-        if 'migrate' in sys.argv or 'makemigrations' in sys.argv:
-            # 在迁移过程中，使用默认配置
-            self.ai_client = AIClient(provider='openai')
-            return
-
-        # 优先使用数据库中的激活配置，但需要捕获数据库表不存在的异常
         try:
-            from apps.ai.models import AIModelConfig
-            active_configs = AIModelConfig.objects.filter(is_active=True)
-
-            if active_configs.exists():
-                # 使用第一个激活的配置
-                active_config = active_configs.first()
-                try:
-                    # 尝试使用激活配置，如果失败则使用默认配置
-                    self.ai_client = AIClient(model_config_id=active_config.id)
-                except Exception as config_e:
-                    logger.warning(f"无法使用激活的AI配置，使用默认配置: {config_e}")
-                    self.ai_client = self._create_default_client()
-            elif provider:
-                # 如果没有激活配置但有指定提供商，使用指定提供商
-                try:
-                    self.ai_client = AIClient(provider=provider)
-                except Exception as provider_e:
-                    logger.warning(f"无法使用指定的AI提供商，使用默认配置: {provider_e}")
-                    self.ai_client = self._create_default_client()
-            else:
-                # 默认使用openai提供商
-                self.ai_client = self._create_default_client()
+            self.ai_client = AIClient(provider=provider) if provider else AIClient()
         except Exception as e:
-            # 如果数据库表不存在或其他数据库错误，使用默认配置
-            logger.warning(f"无法从数据库加载AI配置，使用默认配置: {e}")
+            logger.warning(f"无法创建AI客户端，使用不可用占位客户端: {e}")
             self.ai_client = self._create_default_client()
 
     def _create_default_client(self):
@@ -57,7 +27,7 @@ class AIAnalysisTool:
         :return: AIClient实例或MockClient（如果初始化失败）
         """
         try:
-            return AIClient(provider='openai')
+            return AIClient()
         except Exception as e:
             logger.error(f"创建默认AI客户端失败: {str(e)}")
             # 返回一个Mock客户端，用于返回友好的错误信息
